@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<robot name="my_awesome_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===================== -->
+  <!-- Parameters            -->
+  <!-- ===================== -->
+
+  <!-- Camera -->
+  <xacro:property name="cameraSize" value="0.05"/>
+  <xacro:property name="cameraMass" value="0.1"/>
+
+  <!-- Wheels -->
+  <xacro:property name="wheel_radius" value="0.1"/>
+  <xacro:property name="wheel_width"  value="0.05"/>
+  <xacro:property name="wheel_x" value="0.1"/>
+  <xacro:property name="wheel_y" value="0.15"/>
+
+  <!-- Chassis -->
+  <xacro:property name="chassis_x" value="0.4"/>
+  <xacro:property name="chassis_y" value="0.2"/>
+  <xacro:property name="chassis_z" value="0.1"/>
+
+  <!-- Xacro supports $(find pkg); $(find-pkg-share ...) is NOT a xacro command -->
+  <xacro:include filename="$(find my_awesome_robot)/urdf/robot.gazebo"/>
+
+  <!-- Materials -->
+  <material name="white"><color rgba="1 1 1 1"/></material>
+  <material name="green"><color rgba="0 0.9 0.2 1"/></material>
+  <material name="gray"><color rgba="0.4 0.4 0.4 1"/></material>
+
+  <!-- ===================== -->
+  <!-- Frames / Links         -->
+  <!-- ===================== -->
+
+  <!-- Root link without inertia -->
+  <link name="base_link"/>
+
+  <!-- Chassis -->
+  <joint name="chassis_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="chassis"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="chassis">
+    <visual name="chassis_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_x} ${chassis_y} ${chassis_z}"/>
+      </geometry>
+      <material name="green"/>
+    </visual>
+
+    <collision name="chassis_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chassis_x} ${chassis_y} ${chassis_z}"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="10.0"/>
+      <inertia ixx="0.4167" ixy="0" ixz="0"
+               iyy="1.4167" iyz="0"
+               izz="1.6667"/>
+    </inertial>
+  </link>
+
+  <!-- ===================== -->
+  <!-- Caster                 -->
+  <!-- ===================== -->
+
+  <link name="caster">
+    <visual name="caster_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.05"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision name="caster_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.05"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint_caster" type="fixed">
+    <parent link="chassis"/>
+    <child  link="caster"/>
+    <origin xyz="-0.15 0 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- Wheels (clean frames)  -->
+  <!-- ===================== -->
+
+  <link name="left_wheel">
+    <visual name="left_wheel_visual">
+      <!-- Cylinder is Z-axis by default; roll by pi/2 about X to align axle with Y -->
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision name="left_wheel_collision">
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="5"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0"
+               iyy="1.0" iyz="0.0"
+               izz="1.0"/>
+    </inertial>
+  </link>
+
+  <link name="right_wheel">
+    <visual name="right_wheel_visual">
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision name="right_wheel_collision">
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      <geometry>
+        <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="5"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0"
+               iyy="1.0" iyz="0.0"
+               izz="1.0"/>
+    </inertial>
+  </link>
+
+  <!-- Wheel joints -->
+  <joint type="continuous" name="left_wheel_hinge">
+    <origin xyz="${wheel_x} ${wheel_y} 0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child  link="left_wheel"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="100" velocity="100"/>
+  </joint>
+
+  <joint type="continuous" name="right_wheel_hinge">
+    <origin xyz="${wheel_x} ${-wheel_y} 0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child  link="right_wheel"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="100" velocity="100"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- Camera                 -->
+  <!-- ===================== -->
+
+  <link name="camera">
+    <visual name="camera_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${cameraSize} ${cameraSize} ${cameraSize}"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+
+    <collision name="camera_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${cameraSize} ${cameraSize} ${cameraSize}"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="${cameraMass}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="chassis"/>
+    <child  link="camera"/>
+    <origin xyz="0.2 0 0.05" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================== -->
+  <!-- Hokuyo (visual only)   -->
+  <!-- ===================== -->
+
+  <link name="hokuyo">
+    <visual name="hokuyo_visual">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="file://$(find my_awesome_robot)/urdf/meshes/hokuyo.dae"/>
+      </geometry>
+    </visual>
+
+    <collision name="hokuyo_collision">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.1 0.1"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="1e-5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+
+  <joint name="hokuyo_joint" type="fixed">
+    <parent link="chassis"/>
+    <child  link="hokuyo"/>
+    <origin xyz="0.15 0 0.10" rpy="0 0 0"/>
+  </joint>
+
+</robot>

@@ -1,0 +1,267 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <world name="maze_world">
+
+    <!-- ============================= -->
+    <!-- 1) Visuals, ground, lighting  -->
+    <!-- ============================= -->
+
+    <!-- Enhanced scene with fog for depth -->
+    <scene>
+      <ambient>0.45 0.45 0.5 1</ambient>
+      <background>0.85 0.9 1.0 1</background>
+      <shadows>true</shadows>
+      <fog>
+        <color>0.9 0.95 1.0 1</color>
+        <start>20</start>
+        <end>50</end>
+        <density>0.05</density>
+      </fog>
+    </scene>
+
+    <!-- Larger ground plane with subtle texture and friction -->
+    <model name="ground_plane">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.8</mu>
+                <mu2>0.8</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.75 0.78 0.82 1</ambient>
+            <diffuse>0.75 0.78 0.82 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <emissive>0.01 0.01 0.02 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Soft warm sun with improved direction for better shadows -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 50 0 0 0</pose>
+      <diffuse>1 0.98 0.92 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <attenuation>
+        <range>100</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.2 -1</direction>
+    </light>
+
+    <!-- Secondary point light for ambient fill -->
+    <light type="point" name="ambient_light">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.4 0.4 0.45 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <attenuation>
+        <range>50</range>
+        <constant>0.8</constant>
+        <linear>0.02</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+    </light>
+
+    <!-- ============== -->
+    <!-- 2) Maze walls  -->
+    <!-- ============== -->
+
+    <!-- Perimeter walls: 25m x 25m room, 1.5m tall for better sensor interaction -->
+    <model name="wall_north">
+      <pose>0 12.5 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>25 0.3 1.5</size></box></geometry><material><ambient>0.7 0.7 0.75 1</ambient><emissive>0.05 0.05 0.05 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>25 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="wall_south">
+      <pose>0 -12.5 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>25 0.3 1.5</size></box></geometry><material><ambient>0.7 0.7 0.75 1</ambient><emissive>0.05 0.05 0.05 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>25 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="wall_east">
+      <pose>12.5 0 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>0.3 25 1.5</size></box></geometry><material><ambient>0.7 0.7 0.75 1</ambient><emissive>0.05 0.05 0.05 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>0.3 25 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="wall_west">
+      <pose>-12.5 0 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>0.3 25 1.5</size></box></geometry><material><ambient>0.7 0.7 0.75 1</ambient><emissive>0.05 0.05 0.05 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>0.3 25 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Inner maze walls: Creating paths, dead ends, and corridors -->
+    <model name="wall_inner_1">
+      <pose>0 5 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>10 0.3 1.5</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><emissive>0.03 0.03 0.03 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>10 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="wall_inner_2">
+      <pose>5 0 0.75 0 0 1.5708</pose> <!-- Rotated for vertical barrier -->
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>8 0.3 1.5</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><emissive>0.03 0.03 0.03 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>8 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="wall_inner_3">
+      <pose>-5 -3 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>6 0.3 1.5</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><emissive>0.03 0.03 0.03 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>6 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- New inner wall for added complexity -->
+    <model name="wall_inner_4">
+      <pose>8 -6 0.75 0 0 1.5708</pose> <!-- Vertical barrier near goal -->
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>5 0.3 1.5</size></box></geometry><material><ambient>0.6 0.6 0.65 1</ambient><emissive>0.03 0.03 0.03 1</emissive></material></visual>
+        <collision name="c"><geometry><box><size>5 0.3 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Pillars as additional obstacles -->
+    <model name="pillar_1">
+      <pose>3 7 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><cylinder><radius>0.5</radius><length>1.5</length></cylinder></geometry><material><ambient>0.5 0.5 0.55 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.5</radius><length>1.5</length></cylinder></geometry></collision>
+      </link>
+    </model>
+
+    <model name="pillar_2">
+      <pose>-4 4 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><cylinder><radius>0.5</radius><length>1.5</length></cylinder></geometry><material><ambient>0.5 0.5 0.55 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.5</radius><length>1.5</length></cylinder></geometry></collision>
+      </link>
+    </model>
+
+    <!-- New pillar for more obstacles -->
+    <model name="pillar_3">
+      <pose>6 2 0.75 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><cylinder><radius>0.4</radius><length>1.5</length></cylinder></geometry><material><ambient>0.5 0.5 0.55 1</ambient></material></visual>
+        <collision name="c"><geometry><cylinder><radius>0.4</radius><length>1.5</length></cylinder></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Curved barrier (using a mesh for curve, approximated as a thin wall) -->
+    <model name="curved_barrier">
+      <pose>-2 -8 0.75 0 0 0.7854</pose> <!-- Slight rotation for curve effect -->
+      <static>true</static>
+      <link name="link">
+        <visual name="v"><geometry><box><size>4 0.2 1.5</size></box></geometry><material><ambient>0.55 0.55 0.6 1</ambient></material></visual>
+        <collision name="c"><geometry><box><size>4 0.2 1.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- Dynamic obstacles (movable boxes for variability) -->
+    <model name="dynamic_box_1">
+      <pose>2 -5 0.3 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>5</mass></inertial>
+        <visual name="v"><geometry><box><size>0.8 0.8 0.6</size></box></geometry><material><ambient>0.8 0.3 0.3 1</ambient></material></visual>
+        <collision name="c"><geometry><box><size>0.8 0.8 0.6</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="dynamic_box_2">
+      <pose>-7 6 0.3 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>4</mass></inertial>
+        <visual name="v"><geometry><box><size>0.7 0.7 0.5</size></box></geometry><material><ambient>0.3 0.8 0.3 1</ambient></material></visual>
+        <collision name="c"><geometry><box><size>0.7 0.7 0.5</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <model name="dynamic_box_3">
+      <pose>4 9 0.3 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>6</mass></inertial>
+        <visual name="v"><geometry><box><size>1.0 1.0 0.7</size></box></geometry><material><ambient>0.3 0.3 0.8 1</ambient></material></visual>
+        <collision name="c"><geometry><box><size>1.0 1.0 0.7</size></box></geometry></collision>
+      </link>
+    </model>
+
+    <!-- =============== -->
+    <!-- 3) Goal marker  -->
+    <!-- =============== -->
+    <model name="goal_marker">
+      <pose>10 10 0.1 0 0 0</pose>
+      <static>true</static>
+      <link name="link">
+        <visual name="v">
+          <geometry><cylinder><radius>0.5</radius><length>0.15</length></cylinder></geometry>
+          <material>
+            <ambient>0.0 0.9 0.1 1</ambient>
+            <emissive>0.0 0.6 0.0 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ======================== -->
+    <!-- 4) World-level systems   -->
+    <!-- ======================== -->
+
+    <!-- Sensors plugin (powers all sensors) -->
+    <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- Essential systems: Physics, SceneBroadcaster, UserCommands (for resets) -->
+    <plugin filename="ignition-gazebo-physics-system" name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system" name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-user-commands-system" name="ignition::gazebo::systems::UserCommands"/>
+
+  </world>
+</sdf>
