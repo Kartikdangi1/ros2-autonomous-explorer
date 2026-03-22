@@ -1,0 +1,83 @@
+# robot_localization EKF — Layer 1: Pose/State fusion
+# Fuses wheel odometry (/odom) + IMU (/imu) → /odometry/filtered
+#
+# TF OWNERSHIP (v2 clean architecture):
+#   odom→base_link: THIS NODE is the SOLE publisher (30 Hz).
+#     - Gazebo mecanum plugin: publish_odom_tf=false (in URDF)
+#     - Gazebo TF bridge: DISABLED (in robot_params.yaml)
+#     - nbv_splam_node: does NOT publish odom→base_link
+#   map→odom: nbv_splam_node publishes this ONCE as a static TF.
+#
+# State vector (15 elements): x y z roll pitch yaw vx vy vz vroll vpitch vyaw ax ay az
+# two_d_mode forces roll=0, pitch=0, vz=0, vroll=0, vpitch=0.
+
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+
+    # CRITICAL: EKF is the SOLE publisher of odom→base_link TF.
+    publish_tf: true
+    print_diagnostics: true
+
+    base_link_frame: base_link
+    world_frame:     odom
+
+    # ── Wheel odometry (mecanum / holonomic) ────────────────────────────────
+    # Provides: x(0) y(1) yaw(5) vx(6) vy(7) vyaw(11)
+    # vy MUST be enabled for a holonomic base.
+    odom0: /odom
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+
+    # ── IMU (Madgwick-filtered — noise-reduced angular velocity + acceleration) ──
+    # Provides: vyaw(11) ax(12) ay(13)
+    # Source: /imu/data (Madgwick output — lower noise than raw /imu)
+    #
+    # NOTE: yaw orientation (index 5) intentionally NOT fused.
+    # Enabling absolute yaw causes EKF divergence in Gazebo simulation:
+    # the Madgwick-computed magnetic heading conflicts with the odometry
+    # heading, producing a residual horizontal gravity component that
+    # integrates into unbounded position error (100+ m/s² equivalent).
+    # robot_localization's gravity removal uses the EKF's own 2D orientation
+    # (flat-floor assumption) when yaw is disabled here — which is correct.
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, false,  # yaw disabled — see note above
+                  false, false, false,
+                  false, false, true,   # vyaw only
+                  false, false, false]  # ax, ay DISABLED — gravity removal
+                                       # requires perfect orientation; any
+                                       # Madgwick/magnetometer error leaves a
+                                       # residual that integrates into unbounded
+                                       # position drift (observed: >100 m in 10 s)
+    imu0_queue_size: 10
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: false
+
+    # ── Process noise covariance (15×15 diagonal) ───────────────────────────
+    process_noise_covariance: [
+      0.05, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.05, 0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.06, 0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.03, 0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.06, 0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.025, 0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.025, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.04, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.01, 0.0,  0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.02, 0.0,  0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,
+      0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   0.0,   0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.015]

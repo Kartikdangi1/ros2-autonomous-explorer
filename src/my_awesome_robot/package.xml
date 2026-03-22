@@ -3,22 +3,57 @@
 <package format="3">
   <name>my_awesome_robot</name>
   <version>0.0.1</version>
-  <description>Vision-based obstacle avoidance robot using YOLOv8</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
+  <description>Lidar-IMU SLAM with vision-based obstacle avoidance</description>
+  <maintainer email="1kartik.dangi@gmail.com">Kartik</maintainer>
   <license>Apache-2.0</license>
 
-  <url type="website">https://github.com/YOUR_USERNAME/ros2-vision-obstacle-avoidance</url>
+  <url type="website">https://github.com/Kartikdangi1/ros2-autonomous-explorer</url>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
 
+  <!-- Python dependencies -->
   <depend>rclpy</depend>
-  <depend>rclcpp</depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  
+  <!-- ROS2 message / TF dependencies -->
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
-  <depend>tf2</depend>
+  <depend>visualization_msgs</depend>
   <depend>tf2_ros</depend>
+
+  <!-- Sensor fusion and localization -->
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
+  <exec_depend>sensor_fusion_preprocess</exec_depend>
+
+  <!-- Nav2 Core -->
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_core</depend>
+  <depend>nav2_util</depend>
+  <depend>nav2_msgs</depend>
+
+  <!-- Nav2 Servers -->
+  <depend>nav2_planner</depend>
+  <depend>nav2_controller</depend>
+  <depend>nav2_bt_navigator</depend>
+  <depend>nav2_behaviors</depend>
+  <depend>nav2_smoother</depend>
+  <depend>nav2_lifecycle_manager</depend>
+
+  <!-- Nav2 Plugins -->
+  <depend>nav2_navfn_planner</depend>
+  <depend>nav2_smac_planner</depend>
+  <depend>nav2_dwb_controller</depend>
+  <depend>nav2_regulated_pure_pursuit_controller</depend>
+
+  <!-- SLAM -->
+  <depend>slam_toolbox</depend>
+
+  <!-- Simulation (optional) -->
   <depend>urdf</depend>
   <depend>ros_gz_bridge</depend>
   <depend>ros_gz_image</depend>

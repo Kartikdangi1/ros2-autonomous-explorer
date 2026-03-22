@@ -26,3 +26,21 @@ dist/
 
 # ROS logs
 *.log
+
+# Large ML model weights
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# Ignition source packages (downloaded, not part of project)
+ignition-*/
+ignition-*.tar.*
+ignition-*.dsc
+
+# Junk timestamp/session files created at workspace root
+run_*
+mm/
+CET
+Mar
+PM

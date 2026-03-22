@@ -1,34 +1,35 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(my_awesome_robot)
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
-find_package(rclpy REQUIRED)
-find_package(rclcpp REQUIRED)
 
-# Install Python scripts
-install(DIRECTORY
-  scripts/
+# Install Python modules
+ament_python_install_package(${PROJECT_NAME})
+
+# Install Python executables
+install(PROGRAMS
+  scripts/frontend_node.py
+  scripts/nbv_goal_provider_node.py
   DESTINATION lib/${PROJECT_NAME}
-  USE_SOURCE_PERMISSIONS)
+)
 
-# Install launch files
 install(DIRECTORY
   launch/
-  DESTINATION share/${PROJECT_NAME}/launch)
+  DESTINATION share/${PROJECT_NAME}/launch
+  OPTIONAL
+)
 
-# Install config files
 install(DIRECTORY
   config/
-  DESTINATION share/${PROJECT_NAME}/config)
+  DESTINATION share/${PROJECT_NAME}/config
+  OPTIONAL
+)
 
-# Install URDF files
 install(DIRECTORY
   urdf/
-  DESTINATION share/${PROJECT_NAME}/urdf)
+  DESTINATION share/${PROJECT_NAME}/urdf
+  OPTIONAL
+)
 
 ament_package()

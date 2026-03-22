@@ -1,0 +1,354 @@
+# Nav2 Parameters — my_awesome_robot
+# Holonomic 4WD mecanum robot (0.5m × 0.3m chassis)
+# Replaces: custom OccupancyMapper, AStarPlanner, TrajectoryController, LocalCostmap
+# Depends on: SLAM Toolbox for /map + map→odom TF,
+#             robot_localization EKF for odom→base_link TF
+
+# ===========================================================================
+# Global Costmap — static-window, map frame
+# Replaces: OccupancyMapper + AStarPlanner inflation
+# ===========================================================================
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: map
+      robot_base_frame: base_link
+
+      # Must match SLAM Toolbox resolution (slam_toolbox_params.yaml: resolution: 0.05)
+      # The static_layer inherits the incoming map resolution, so mismatching
+      # causes silent override and inconsistent costmap sizing.
+      resolution: 0.05
+      rolling_window: false
+      # true = treat unexplored (unknown) cells as unknown during planning.
+      # With allow_unknown: true in SmacPlanner2D the planner can still route
+      # through unknown space, but the costmap won't silently treat unobserved
+      # walls as free, preventing the planner from routing the robot into walls
+      # it hasn't seen yet and then hitting them.
+      track_unknown_space: true
+
+      # Allow TF lookups up to 0.5 s old for the costmap's own pose lookups.
+      transform_tolerance: 0.5
+
+      # Robot footprint — bounding box of 0.5m×0.3m chassis
+      robot_radius: 0.0
+      footprint: "[[0.25, 0.15], [0.25, -0.15], [-0.25, -0.15], [-0.25, 0.15]]"
+
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+      # Keeps the costmap in sync with the SLAM Toolbox map topic
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        enabled: true
+
+      # Replaces OccupancyMapper's raycasting + update_with_scan_points
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: fused_scan
+        fused_scan:
+          topic: /fused_scan
+          sensor_frame: lidar_link
+          observation_persistence: 0.0
+          expected_update_rate: 0.0
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.0
+          obstacle_range: 19.0   # match max_range param
+          raytrace_range: 20.0
+          inf_is_valid: true
+          transform_tolerance: 0.5
+          # Clear the robot's own footprint from the obstacle layer so short-range
+          # self-returns from the chassis don't mark the robot's cell as lethal.
+          footprint_clearing_enabled: true
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        cost_scaling_factor: 10.0
+        # Reduced from 0.35 m — with 0.35 m the inflated zone of walls 0.35 m
+        # away from the robot reached the robot's inscribed circle (0.15 m), causing
+        # SmacPlanner2D to refuse to plan with "Starting point in lethal space".
+        # 0.20 m keeps a safe margin while leaving enough room in 1.5 m corridors.
+        inflation_radius: 0.25
+        inflate_unknown: false
+
+
+# ===========================================================================
+# Local Costmap — rolling window, odom frame
+# Replaces: LocalCostmap class (5×5m, 0.05m resolution, 0.30m inflation)
+# ===========================================================================
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      update_frequency: 10.0   # match local_costmap_update_rate
+      publish_frequency: 5.0
+      global_frame: odom
+      robot_base_frame: base_link
+
+      resolution: 0.05
+      width: 7                 # increased from 5 — gives DWB more lookahead context
+      height: 7
+      rolling_window: true
+      track_unknown_space: false
+
+      footprint: "[[0.25, 0.15], [0.25, -0.15], [-0.25, -0.15], [-0.25, 0.15]]"
+      robot_radius: 0.0
+      transform_tolerance: 0.5
+
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: fused_scan
+        fused_scan:
+          topic: /fused_scan
+          sensor_frame: lidar_link
+          observation_persistence: 0.0
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          max_obstacle_height: 2.0
+          obstacle_range: 5.0
+          raytrace_range: 6.0
+          inf_is_valid: true
+          transform_tolerance: 0.5
+          footprint_clearing_enabled: true
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        cost_scaling_factor: 10.0
+        inflation_radius: 0.20   # reduced from 0.30 — matches global costmap
+
+
+# ===========================================================================
+# Planner Server — global A* path planner
+# Replaces: AStarPlanner + _douglas_peucker + OccupancyMapper.get_inflated_grid
+# ===========================================================================
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    planner_plugins: ["GridBased"]
+    expected_planner_frequency: 0.0  # 0 = no frequency check; BT RateController drives replanning
+
+    GridBased:
+      # SmacPlanner2D: A* on a 2D costmap with proper footprint collision checking
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      tolerance: 0.5             # match goal_tolerance
+      use_astar: true            # A* (not Dijkstra)
+      allow_unknown: true        # explore through unmapped areas
+      max_planning_time: 2.0
+      max_iterations: 100000     # 1M causes OOM segfault on large SLAM maps
+      smooth_path: true          # built-in path smoothing
+      downsample_costmap: false
+      downsampling_factor: 1
+      cost_travel_multiplier: 2.0
+
+
+# ===========================================================================
+# Controller Server — holonomic path follower
+# Replaces: TrajectoryController + LocalCostmap reactive avoidance
+# ===========================================================================
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 10.0   # match control_rate
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 5.0    # at 10 Hz = 50 cycles; 1.5 (15 cycles) was too short for Ignition Gazebo startup
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    # Replaces stuck_timeout (20→10 s) — now handled by Nav2 progress checker
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.10   # small — just confirm the robot is nudging
+      movement_time_allowance: 30.0    # 30 s — allows slow navigation in tight corridors
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.4          # tightened from 0.8 — smaller zone reduces RotateToGoal interaction
+      yaw_goal_tolerance: 1.57        # holonomic: don't care about final heading
+      stateful: true
+
+    # DWB — Holonomic Dynamic Window Approach
+    # Replaces: TrajectoryController.compute_velocity (P-gain + strafe logic)
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+
+      # Holonomic base — enables lateral (vy) velocity commands.
+      # NOTE: both params needed: holonomic_robot in DWBLocalPlanner AND
+      # kinematics.holonomic in StandardTrajectoryGenerator (Nav2 Humble).
+      holonomic_robot: true
+      kinematics.holonomic: true   # trajectory generator param — without this vy is never sampled
+
+      # Velocity limits — mecanum wheels allow up to 1.0 m/s
+      max_vel_x: 0.5
+      max_vel_y: 0.5             # lateral for holonomic
+      min_vel_x: -0.5
+      min_vel_y: -0.5
+      max_vel_theta: 1.0
+      min_vel_theta: -1.0
+      min_speed_xy: 0.0
+      max_speed_xy: 0.5
+      min_speed_theta: 0.0
+
+      # Acceleration limits
+      acc_lim_x: 2.5
+      acc_lim_y: 2.5
+      acc_lim_theta: 3.2
+      decel_lim_x: -2.5
+      decel_lim_y: -2.5
+      decel_lim_theta: -3.2
+
+      # Trajectory sampling
+      vx_samples: 10
+      vy_samples: 10
+      vtheta_samples: 20
+      sim_time: 2.5              # increased from 1.5 — DWB looks further ahead to start turns earlier
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      trans_stopped_velocity: 0.05
+
+      # Goal tolerance
+      xy_goal_tolerance: 0.4
+      yaw_goal_tolerance: 1.57        # holonomic: final heading irrelevant
+      transform_tolerance: 0.5        # was 0.2 — Ignition sim-time TF can lag at startup
+      short_circuit_trajectory_evaluation: true
+
+      # DWB critics (cost functions that replaced reactive strafing logic)
+      # NOTE: RotateToGoal removed — it is for differential-drive only.
+      # On a holonomic robot it forces spinning in place within xy_goal_tolerance
+      # (0.8 m) instead of translating, triggering SimpleProgressChecker every time.
+      critics: ["Oscillation", "BaseObstacle", "GoalAlign",
+                "PathAlign", "PathDist", "GoalDist"]
+
+      PathAlign.scale: 32.0
+      PathAlign.forward_point_distance: 0.8   # look 0.8 m ahead along path — starts steering into corners earlier
+      GoalAlign.scale: 24.0
+      GoalAlign.forward_point_distance: 0.8
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      BaseObstacle.scale: 0.02
+      Oscillation.scale: 5.0
+
+
+# ===========================================================================
+# Behavior Server — recovery behaviors
+# Replaces: NBVSPLAMNode._recovery() 3-phase escape maneuver
+# ===========================================================================
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "wait"]
+
+    spin:
+      plugin: "nav2_behaviors/Spin"
+
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+
+    wait:
+      plugin: "nav2_behaviors/Wait"
+
+    # Limits for recovery behaviors
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.5   # was 0.1 — Ignition sim-time TF can lag; 0.1 caused Spin/BackUp to abort
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.8
+    min_rotational_vel: 0.4
+    rotational_acc_lim: 3.2
+    # Linear velocity limits — required for BackUp behavior (DriveOnHeading)
+    # Without these, BackUp logs "no acceleration limits set" and aborts immediately.
+    # NOTE: DriveOnHeading reads "linear_acc_lim" (NOT "linear_acceleration_lim").
+    max_linear_vel: 0.3
+    min_linear_vel: 0.05
+    linear_acc_lim: 2.5
+
+
+# ===========================================================================
+# BT Navigator — orchestrates planner + controller + recovery via BT XML
+# Replaces: SPLAMState machine + control_loop() + periodic replan timer
+# ===========================================================================
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odometry/filtered  # EKF output
+
+    # Custom exploration BT (replaces the 6-state SPLAM state machine)
+    # NOTE: the launch file overrides this with an absolute path via
+    # {'default_bt_xml_filename': BT_XML} — this value is only a fallback
+    # and should NOT be used as a bare filename (it won't resolve correctly).
+    # The launch-file override always wins, so this value is never actually used.
+    default_bt_xml_filename: "exploration_bt.xml"  # overridden by nav2_exploration.launch.py
+
+    # Replaces replan_interval (25→15 s) — BT RateController handles replanning
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    navigators: ["navigate_to_pose"]
+
+    navigate_to_pose:
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+
+
+# ===========================================================================
+# Lifecycle Manager — autostart for all Nav2 servers
+# ===========================================================================
+lifecycle_manager:
+  ros__parameters:
+    use_sim_time: true
+    autostart: true
+    node_names:
+      - planner_server
+      - controller_server
+      - behavior_server
+      - bt_navigator

@@ -1,0 +1,74 @@
+<!--
+  Exploration Behavior Tree — my_awesome_robot
+
+  Recovery sequence (when FollowPath fails):
+    1. Clear both costmaps (stale inflation data)
+    2. BackUp 0.3 m to escape inflated wall zones ("Starting point in lethal space")
+    3. Wait 2 s for costmap to refresh from new position
+    4. Spin 90° to rescan the environment
+    5. Wait 2 s
+    6. BackUp 0.5 m (longer escape if spin succeeded)
+    7. Wait 3 s before retry
+
+  BackUp comes BEFORE Spin so the robot moves out of lethal space before
+  any rotation check (Spin fails with "Collision Ahead" if the robot is
+  already at the boundary of an inflated obstacle).
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <RecoveryNode number_of_retries="2" name="NavigateRecovery">
+
+      <!-- Normal navigation pipeline: plan then follow, replanning at 0.5 Hz (every 2 s) -->
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <RateController hz="0.5">
+          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Context"
+                                service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath path="{path}" controller_id="FollowPath"
+                      error_code_id="{follow_path_error_code}"/>
+          <ClearEntireCostmap name="ClearLocalCostmap-Context"
+                              service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+
+      </PipelineSequence>
+
+      <Sequence name="RecoveryActions">
+
+        <!-- Step 1: clear stale costmap inflation data -->
+        <ClearEntireCostmap name="ClearLocalCostmap-System"
+                            service_name="local_costmap/clear_entirely_local_costmap"/>
+        <ClearEntireCostmap name="ClearGlobalCostmap-System"
+                            service_name="global_costmap/clear_entirely_global_costmap"/>
+
+        <!-- Step 2: back up FIRST — escapes "Starting point in lethal space"
+             before any spin check (Spin aborts immediately with "Collision Ahead"
+             when the robot is inside an inflated wall zone). -->
+        <BackUp backup_dist="0.3" backup_speed="0.15"
+                error_code_id="{backup_error_code}"/>
+
+        <!-- Step 3: short pause for costmap to refresh from the new position -->
+        <Wait wait_duration="2"/>
+
+        <!-- Step 4: spin 90° to rescan the environment -->
+        <Spin spin_dist="1.57" error_code_id="{spin_error_code}"/>
+
+        <!-- Step 5: pause then longer backup before retry -->
+        <Wait wait_duration="2"/>
+        <BackUp backup_dist="0.5" backup_speed="0.15"
+                error_code_id="{backup_error_code}"/>
+        <Wait wait_duration="3"/>
+
+      </Sequence>
+
+    </RecoveryNode>
+
+  </BehaviorTree>
+</root>
