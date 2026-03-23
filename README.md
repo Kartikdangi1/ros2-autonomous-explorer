@@ -22,19 +22,19 @@ A 4WD Mecanum holonomic robot that explores an unknown maze environment autonomo
 
 ```
 src/
-├── my_awesome_robot/
-│   ├── my_awesome_robot/       # Python library (nbv_utils, localization, mapping)
+├── autonomous_explorer/
+│   ├── autonomous_explorer/    # Python library (nbv_utils, localization, mapping)
 │   ├── scripts/                # ROS2 node executables
-│   │   ├── frontend_node.py        — LiDAR obstacle clustering
-│   │   └── nbv_goal_provider_node.py — NBV mission controller
+│   │   ├── obstacle_cluster_node.py   — LiDAR obstacle clustering
+│   │   └── nbv_goal_provider_node.py  — NBV mission controller
 │   ├── launch/
-│   │   ├── nav2_exploration.launch.py  — top-level orchestration
+│   │   ├── nav2_exploration.launch.py — top-level orchestration
 │   │   ├── localization.launch.py
 │   │   ├── mapping.launch.py
 │   │   └── navigation.launch.py
 │   ├── config/                 # YAML parameters for all subsystems
 │   └── urdf/                   # Robot model + Gazebo world
-└── sensor_fusion_preprocess/   # Multi-sensor fusion node
+└── sensor_fusion/              # Multi-sensor fusion node
 ```
 
 ## Quick Start
@@ -48,7 +48,7 @@ src/
 
 ```bash
 cd ~/ros2-autonomous-explorer
-colcon build --packages-select my_awesome_robot sensor_fusion_preprocess --symlink-install
+colcon build --packages-select autonomous_explorer sensor_fusion --symlink-install
 source install/setup.bash
 ```
 
@@ -56,10 +56,10 @@ source install/setup.bash
 
 ```bash
 # Full system: Gazebo + SLAM + Nav2 + NBV exploration
-ros2 launch my_awesome_robot nav2_exploration.launch.py
+ros2 launch autonomous_explorer nav2_exploration.launch.py
 
 # With RViz
-ros2 launch my_awesome_robot nav2_exploration.launch.py use_rviz:=true
+ros2 launch autonomous_explorer nav2_exploration.launch.py use_rviz:=true
 ```
 
 Subsystems start in sequence:
@@ -73,7 +73,7 @@ Subsystems start in sequence:
 
 ## NBV Planning Library
 
-Core algorithms in `my_awesome_robot/nbv_utils.py` (pure Python, no ROS2 deps):
+Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps):
 
 | Class | Role |
 |-------|------|

@@ -1,0 +1,27 @@
+# Sensor Fusion Preprocess Node — Layer 2/3 parameters
+sensor_fusion:
+  ros__parameters:
+    # Per-sensor range gates (must not exceed sensor max from robot.urdf.xacro)
+    lidar_min:  0.08
+    lidar_max: 18.0
+    radar_min:  0.5
+    radar_max: 20.0
+    depth_min:  0.3
+    depth_max:  6.0
+
+    # Height filter for depth points (in output frame, metres)
+    # Keeps returns from ground level up to ~human-height obstacles
+    depth_height_min: -0.15
+    depth_height_max:  1.5
+
+    # Output scan: 360 bins → 1° resolution, matching LiDAR
+    num_bins:     360
+    output_frame: lidar_link
+
+    # Depth image sub-sampling stride (take every Nth row/col for speed)
+    # stride=4 → 160×120 effective resolution from 640×480
+    depth_stride: 4
+
+    # Radar + depth points within this radius (m) are published as
+    # /detected_obstacles_fusion for the controller's dynamic avoidance
+    obstacle_publish_range: 5.0
