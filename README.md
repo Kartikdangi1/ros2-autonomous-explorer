@@ -6,13 +6,17 @@ Autonomous exploration robot using Next-Best-View (NBV) planning, multi-sensor f
 
 A 4WD Mecanum holonomic robot that explores an unknown maze environment autonomously. It fuses LiDAR, radar, and RGB-D depth into a single scan, builds a 2D occupancy map with SLAM Toolbox, and continuously computes the next best viewpoint to maximise frontier coverage.
 
-```
-Ignition Gazebo 6
-  → Sensor Fusion  (LiDAR + Radar + RGB-D → /fused_scan)
-  → Localization   (Madgwick IMU filter + robot_localization EKF → odom→base_link TF)
-  → Mapping        (SLAM Toolbox → /map + map→odom TF)
-  → Exploration    (NBV planner → Nav2 NavigateToPose)
-```
+### System Data Flow
+
+![Data Flow](src/docs/data_flow.png)
+
+### Simulation Environment
+
+![Gazebo Simulation](src/docs/gazebo.png)
+
+### SLAM + RViz Visualization
+
+![RViz Visualization](src/docs/Rviz.png)
 
 ## Project Structure
 
