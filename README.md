@@ -34,6 +34,12 @@ src/
 │   │   └── navigation.launch.py
 │   ├── config/                 # YAML parameters for all subsystems
 │   └── urdf/                   # Robot model + Gazebo world
+├── rl_local_planner/           # RL-based local planner (optional extension)
+│   ├── rl_local_planner/       # Python library (gym env, reward, feature extractor)
+│   ├── scripts/                # Training, inference, and ONNX export
+│   ├── launch/                 # Training + inference launch files
+│   ├── config/                 # RL hyperparameters + controller params
+│   └── models/                 # Trained ONNX models
 └── sensor_fusion/              # Multi-sensor fusion node
 ```
 
@@ -44,11 +50,22 @@ src/
 - Ignition Gazebo 6 (Fortress)
 - `ros-humble-nav2-*`, `ros-humble-slam-toolbox`, `ros-humble-robot-localization`
 
-### Build
+### Install Dependencies
 
 ```bash
 cd ~/ros2-autonomous-explorer
-colcon build --packages-select autonomous_explorer sensor_fusion --symlink-install
+
+# ROS2 dependencies
+rosdep install --from-paths src --ignore-src -r -y
+
+# Python dependencies
+pip install -r requirements.txt
+```
+
+### Build
+
+```bash
+colcon build --symlink-install
 source install/setup.bash
 ```
 
@@ -93,8 +110,91 @@ Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps
 | RGB-D Camera | 0.3–6 m depth range |
 | Forward Radar | 90° FOV, 50 m range |
 
+## RL Local Planner (Optional Extension)
+
+A PPO-trained reinforcement learning policy that replaces Nav2's DWB controller as the local planner. The RL agent learns to navigate toward waypoints while avoiding obstacles, trained entirely in the Gazebo simulation.
+
+### Architecture
+
+The RL controller is a standalone ROS2 node that publishes `/cmd_vel` directly. When enabled, Nav2's DWB controller output is remapped to a dead topic — the BT navigator still orchestrates goals, the global planner still computes paths, but the RL policy drives the robot.
+
+```
+NBV goal provider → Nav2 BT → SmacPlanner2D → /plan (global path)
+                                                  ↓
+                              RL controller → /cmd_vel (local control)
+```
+
+### Training
+
+**Step 1: Launch the simulation (terminal 1)**
+
+```bash
+ros2 launch rl_local_planner train.launch.py
+# Optional: use_rviz:=true to visualize during training
+```
+
+**Step 2: Run the training script (terminal 2)**
+
+```bash
+python3 src/rl_local_planner/scripts/train_ppo.py \
+    --config src/rl_local_planner/config/training_config.yaml
+```
+
+**Step 3: Monitor with TensorBoard (terminal 3)**
+
+```bash
+tensorboard --logdir ./tb_logs/
+```
+
+Training uses curriculum learning across 3 stages:
+
+| Stage | Goal Distance | Conditions | Advances when |
+|-------|--------------|------------|---------------|
+| 1 (easy) | 1–2 m | Open-area spawns only | Success rate > 70% |
+| 2 (medium) | 2–4 m | All spawn points | Success rate > 60% |
+| 3 (hard) | 3–6 m | All spawns + dynamics randomization | — |
+
+Domain randomization includes: random spawn/goal positions, LiDAR noise, odometry noise, action delay, and velocity scaling (stage 3).
+
+### Export Trained Model
+
+```bash
+python3 src/rl_local_planner/scripts/export_onnx.py \
+    --checkpoint ./rl_best_model/best_model.zip \
+    --output ./models/explorer_ppo.onnx
+```
+
+### Run with RL Controller
+
+```bash
+ros2 launch rl_local_planner rl_exploration.launch.py \
+    use_rl_controller:=true
+```
+
+The default (`use_rl_controller:=false`) launches the original DWB system — no changes to existing behavior.
+
+### RL Components
+
+| Module | Role |
+|--------|------|
+| `obs_builder.py` | Shared observation construction (costmap 84×84, LiDAR 360, goal vector, velocity) |
+| `reward.py` | Normalized reward: goal progress, collision penalty, proximity, smoothness |
+| `feature_extractor.py` | Custom CNN (costmap) + MLP (scan) feature extractor for SB3 |
+| `curriculum.py` | 3-stage curriculum with success-rate triggers |
+| `gym_env.py` | Gymnasium wrapper around Gazebo (scan-gated sync, costmap collision detection) |
+| `onnx_inference.py` | ONNX model loading with graceful degradation |
+| `rl_controller_node.py` | Inference node: carrot-point goal extraction, safety layer, 10 Hz cmd_vel |
+
+### Configuration
+
+| File | Purpose |
+|------|---------|
+| `config/training_config.yaml` | PPO hyperparameters, reward weights, curriculum thresholds |
+| `config/rl_params.yaml` | Inference node parameters (velocity limits, safety thresholds) |
+
 ## Tech Stack
 
 - ROS2 Humble · Ignition Gazebo 6 · Nav2 · SLAM Toolbox
 - robot_localization EKF · imu_filter_madgwick
 - Python 3.10 · NumPy · SciPy
+- PyTorch · Stable-Baselines3 · Gymnasium · ONNX Runtime

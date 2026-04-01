@@ -32,6 +32,8 @@ dist/
 *.pth
 *.onnx
 *.weights
+rl_best_model/*.zip
+rl_checkpoints/*.zip
 
 # Ignition source packages (downloaded, not part of project)
 ignition-*/

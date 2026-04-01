@@ -75,7 +75,7 @@ global_costmap:
         # away from the robot reached the robot's inscribed circle (0.15 m), causing
         # SmacPlanner2D to refuse to plan with "Starting point in lethal space".
         # 0.20 m keeps a safe margin while leaving enough room in 1.5 m corridors.
-        inflation_radius: 0.335
+        inflation_radius: 0.20
         inflate_unknown: false
 
 
@@ -126,7 +126,7 @@ local_costmap:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
         cost_scaling_factor: 10.0
-        inflation_radius: 0.335   # reduced from 0.30 — matches global costmap
+        inflation_radius: 0.20    # matches global costmap; 0.335 was blocking corridors
 
 
 # ===========================================================================

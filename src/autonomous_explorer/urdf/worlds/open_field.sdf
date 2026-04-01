@@ -1,0 +1,150 @@
+<?xml version="1.0" ?>
+<!--
+  open_field.sdf — Large open arena with scattered box obstacles.
+
+  Designed for Stage 1 and Stage 2 curriculum training where the robot
+  needs clear line-of-sight paths to learn basic navigation before
+  encountering tight corridors.
+
+  Dimensions: 24 × 24 m navigable area
+  Obstacles:  12 scattered 1×1×0.5 m boxes in two rings
+-->
+<sdf version="1.9">
+  <world name="open_field">
+
+    <!-- Physics -->
+    <physics name="default_physics" default="true" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+
+    <!-- Scene -->
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.85 1.0 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Sun -->
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1.0 0.95 0.85 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+          <surface><friction><ode><mu>0.8</mu><mu2>0.8</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+          <material>
+            <ambient>0.3 0.5 0.2 1</ambient>
+            <diffuse>0.3 0.5 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Perimeter walls (24×24 m arena) -->
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 12 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>24 0.2 1.0</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>24 0.2 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -12 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>24 0.2 1.0</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>24 0.2 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_east">
+      <static>true</static>
+      <pose>12 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.2 24 1.0</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.2 24 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-12 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="col"><geometry><box><size>0.2 24 1.0</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>0.2 24 1.0</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Inner ring obstacles (r ≈ 5 m) -->
+    <model name="obs_i1"><static>true</static><pose>5 0 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+    <model name="obs_i2"><static>true</static><pose>3.5 3.5 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+    <model name="obs_i3"><static>true</static><pose>0 5 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+    <model name="obs_i4"><static>true</static><pose>-3.5 3.5 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+    <model name="obs_i5"><static>true</static><pose>-5 0 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+    <model name="obs_i6"><static>true</static><pose>-3.5 -3.5 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.8 0.3 0.1 1</ambient><diffuse>0.8 0.3 0.1 1</diffuse></material></visual></link></model>
+
+    <!-- Outer ring obstacles (r ≈ 9 m) -->
+    <model name="obs_o1"><static>true</static><pose>9 0 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+    <model name="obs_o2"><static>true</static><pose>6.4 6.4 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+    <model name="obs_o3"><static>true</static><pose>0 9 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+    <model name="obs_o4"><static>true</static><pose>-6.4 6.4 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+    <model name="obs_o5"><static>true</static><pose>-9 0 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+    <model name="obs_o6"><static>true</static><pose>-6.4 -6.4 0.25 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>1 1 0.5</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>1 1 0.5</size></box></geometry>
+        <material><ambient>0.1 0.3 0.8 1</ambient><diffuse>0.1 0.3 0.8 1</diffuse></material></visual></link></model>
+
+  </world>
+</sdf>

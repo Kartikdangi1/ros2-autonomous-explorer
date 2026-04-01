@@ -1,0 +1,30 @@
+# RL controller node parameters — inference time
+rl_controller:
+  ros__parameters:
+    # Path to the exported ONNX model
+    model_path: ""
+
+    # Inference rate (Hz) — matches training step rate
+    inference_rate: 10.0
+
+    # Carrot-point extraction: max distance along global path for local goal
+    carrot_radius: 3.0
+
+    # Velocity limits (must match nav2_params.yaml / robot.urdf.xacro)
+    max_vel_x: 0.5
+    max_vel_y: 0.5
+    max_vel_theta: 1.0
+
+    # Acceleration limits (must match nav2_params.yaml)
+    max_accel_x: 2.5
+    max_accel_y: 2.5
+    max_accel_theta: 3.2
+
+    # Safety: emergency stop if min LiDAR range drops below this (metres)
+    safety_min_range: 0.18
+
+    # Goal tolerance — matches Nav2's SimpleGoalChecker xy_goal_tolerance
+    goal_tolerance: 0.3
+
+    # Observation costmap size (must match training)
+    costmap_size: 84

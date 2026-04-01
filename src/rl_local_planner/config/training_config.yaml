@@ -1,0 +1,44 @@
+# PPO training hyperparameters and reward weights
+
+# ── PPO hyperparameters ──────────────────────────────────────────────────────
+policy: MultiInputPolicy
+learning_rate: 3.0e-4
+n_steps: 2048
+batch_size: 64
+n_epochs: 5
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0.02
+total_timesteps: 1500000
+
+# ── Network architecture ─────────────────────────────────────────────────────
+features_dim: 128          # output dim of the custom feature extractor
+net_arch_pi: [256, 256]    # policy network hidden layers
+net_arch_vf: [256, 256]    # value network hidden layers
+
+# ── Normalisation ────────────────────────────────────────────────────────────
+normalize_reward: true     # VecNormalize wrapper for reward stabilisation
+
+# ── Evaluation ───────────────────────────────────────────────────────────────
+eval_freq: 25000           # run eval every N training steps
+n_eval_episodes: 10        # episodes per evaluation round
+
+# ── Checkpointing ────────────────────────────────────────────────────────────
+checkpoint_freq: 50000     # save model every N steps
+tb_log_dir: "./tb_logs/"
+save_dir: "./rl_checkpoints/"
+best_model_dir: "./rl_best_model/"
+
+# ── Reward weights ───────────────────────────────────────────────────────────
+# goal_progress is normalised by initial distance → consistent scale
+reward_progress: 5.0       # × (fraction of initial distance closed per step)
+reward_goal_reached: 25.0  # one-time bonus on success
+reward_collision: -5.0     # one-time penalty on collision
+reward_proximity: -0.5     # × max(0, threshold - min_range)  [soft LiDAR warning]
+reward_smoothness: -0.1    # × ||action_t - action_{t-1}||
+reward_step_cost: -0.03    # per-step penalty (encourages efficiency, penalizes hovering)
+reward_heading: 0.2        # × cos(angle_to_goal) — bootstraps directional learning
+reward_near_goal: 5.0      # × approach progress inside radius (approach-only, zero for hovering)
+reward_near_goal_radius: 0.8  # metres — approach amplifier zone boundary
+goal_tolerance: 0.3           # metres — distance threshold for goal_reached

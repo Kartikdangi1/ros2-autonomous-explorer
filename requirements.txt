@@ -1,0 +1,23 @@
+# Core dependencies (autonomous_explorer + sensor_fusion)
+numpy==2.2.6
+scipy==1.15.3
+pyyaml==5.4.1
+
+# RL Local Planner (src/rl_local_planner)
+opencv-python==4.12.0.88
+gymnasium==1.2.3
+stable-baselines3==2.7.1
+torch==2.9.1
+onnxruntime==1.23.2
+tensorboard==2.20.0
+tqdm==4.67.3
+rich==14.3.3
+
+# Config validation
+pydantic==2.12.5
+
+# Hyperparameter sweeps (optional)
+optuna==4.8.0
+
+# MuJoCo backend for fast headless RL training (no ROS2 needed)
+mujoco>=3.1.0

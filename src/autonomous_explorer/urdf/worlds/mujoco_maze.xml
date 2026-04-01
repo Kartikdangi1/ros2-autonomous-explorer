@@ -1,0 +1,215 @@
+<mujoco model="mujoco_maze">
+  <!--
+    MuJoCo world — geometry mirrored from maze_world.sdf.
+
+    Physics settings:
+      timestep=0.05  → 20 Hz (matches /fused_scan rate; ~10× less work than Gazebo 1 kHz)
+      implicitfast   → fastest integrator for rigid-body dynamics
+      MuJoCo runs uncapped by default (no realtime_factor needed)
+
+    All obstacles are box/cylinder primitives — collision detection is ~10×
+    faster than meshes.
+
+    SDF → MJCF geometry notes:
+      • SDF <box><size>X Y Z</size>  is FULL extents.
+      • MJCF <geom type="box" size="hx hy hz"/> is HALF-extents.
+        → Divide each SDF dimension by 2 for MJCF size.
+      • Body pos matches SDF <pose> position (already the centre for walls).
+      • MJCF cylinder size="r h" where h is HALF-length.
+  -->
+
+  <compiler angle="radian"/>
+
+  <option timestep="0.05"
+          integrator="implicitfast"
+          gravity="0 0 -9.81"/>
+
+  <!-- Include the robot body (merges <worldbody> content) -->
+  <include file="../mujoco_robot.xml"/>
+
+  <worldbody>
+
+    <!-- ================================================================ -->
+    <!-- FLOOR                                                              -->
+    <!-- ================================================================ -->
+    <geom name="floor"
+          type="plane"
+          size="0 0 1"
+          friction="0.8 0.005 0.0001"
+          contype="1"
+          conaffinity="1"/>
+
+    <!-- ================================================================ -->
+    <!-- PERIMETER WALLS  (25.6 m × 25 m footprint, 2.5 m tall)           -->
+    <!-- SDF: size X Y Z full → MJCF size hx hy hz half                   -->
+    <!-- ================================================================ -->
+
+    <!-- wall_north: SDF pos=(0, 12.5, 1.25), size=(25.6, 0.3, 2.5) -->
+    <body name="wall_north" pos="0 12.5 1.25">
+      <geom type="box" size="12.8 0.15 1.25" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- wall_south: SDF pos=(0, -12.5, 1.25), size=(25.6, 0.3, 2.5) -->
+    <body name="wall_south" pos="0 -12.5 1.25">
+      <geom type="box" size="12.8 0.15 1.25" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- wall_east: SDF pos=(12.5, 0, 1.25), size=(0.3, 25, 2.5) -->
+    <body name="wall_east" pos="12.5 0 1.25">
+      <geom type="box" size="0.15 12.5 1.25" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- wall_west: SDF pos=(-12.5, 0, 1.25), size=(0.3, 25, 2.5) -->
+    <body name="wall_west" pos="-12.5 0 1.25">
+      <geom type="box" size="0.15 12.5 1.25" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- INNER MAZE WALLS — Horizontal (along X)                           -->
+    <!-- All inner walls are 2.0 m tall; SDF z-centre = 1.0               -->
+    <!-- ================================================================ -->
+
+    <!-- Long central divider left: SDF pos=(-4, 0, 1.0), size=(8, 0.25, 2.0) -->
+    <body name="wall_h_center_left" pos="-4 0 1.0">
+      <geom type="box" size="4.0 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- Long central divider right: SDF pos=(6.5, 0, 1.0), size=(5, 0.25, 2.0) -->
+    <body name="wall_h_center_right" pos="6.5 0 1.0">
+      <geom type="box" size="2.5 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- North corridor wall: SDF pos=(-2, 6, 1.0), size=(10, 0.25, 2.0) -->
+    <body name="wall_h_north_corridor" pos="-2 6 1.0">
+      <geom type="box" size="5.0 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- Dead-end north: SDF pos=(8, 9, 1.0), size=(4, 0.25, 2.0) -->
+    <body name="wall_h_deadend_north" pos="8 9 1.0">
+      <geom type="box" size="2.0 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- South corridor wall: SDF pos=(-3, -5, 1.0), size=(7, 0.25, 2.0) -->
+    <body name="wall_h_south_corridor" pos="-3 -5 1.0">
+      <geom type="box" size="3.5 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- Far south room: SDF pos=(5, -8, 1.0), size=(6, 0.25, 2.0) -->
+    <body name="wall_h_south_room" pos="5 -8 1.0">
+      <geom type="box" size="3.0 0.125 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- INNER MAZE WALLS — Vertical (along Y)                             -->
+    <!-- ================================================================ -->
+
+    <!-- West vertical corridor: SDF pos=(-8, 3, 1.0), size=(0.25, 12, 2.0) -->
+    <body name="wall_v_west_corridor" pos="-8 3 1.0">
+      <geom type="box" size="0.125 6.0 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- Central vertical barrier: SDF pos=(3, 4, 1.0), size=(0.25, 8, 2.0) -->
+    <body name="wall_v_center" pos="3 4 1.0">
+      <geom type="box" size="0.125 4.0 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- East corridor divider: SDF pos=(9, -3, 1.0), size=(0.25, 7, 2.0) -->
+    <body name="wall_v_east_divider" pos="9 -3 1.0">
+      <geom type="box" size="0.125 3.5 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- SW room partition: SDF pos=(-5, -8, 1.0), size=(0.25, 6, 2.0) -->
+    <body name="wall_v_sw_partition" pos="-5 -8 1.0">
+      <geom type="box" size="0.125 3.0 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- NE corner room: SDF pos=(6, 9, 1.0), size=(0.25, 5, 2.0) -->
+    <body name="wall_v_ne_room" pos="6 9 1.0">
+      <geom type="box" size="0.125 2.5 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- INNER MAZE WALLS — Angled                                          -->
+    <!-- MJCF euler is roll/pitch/yaw in radians                           -->
+    <!-- ================================================================ -->
+
+    <!-- SW angled barrier: SDF pos=(-8, -9, 1.0) yaw=0.7854 (45°), size=(4, 0.2, 2.0) -->
+    <body name="wall_angled_sw" pos="-8 -9 1.0" euler="0 0 0.7854">
+      <geom type="box" size="2.0 0.1 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- NE angled barrier: SDF pos=(10, 5, 1.0) yaw=-0.5236 (-30°), size=(5, 0.2, 2.0) -->
+    <body name="wall_angled_ne" pos="10 5 1.0" euler="0 0 -0.5236">
+      <geom type="box" size="2.5 0.1 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- STRUCTURAL PILLARS (cylinders)                                     -->
+    <!-- SDF cylinder: radius r, length L → MJCF size="r L/2"             -->
+    <!-- ================================================================ -->
+
+    <!-- pillar_1: SDF pos=(-4, 6, 1.0), r=0.25, length=2.0 -->
+    <body name="pillar_1" pos="-4 6 1.0">
+      <geom type="cylinder" size="0.25 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- pillar_2: SDF pos=(3, -5, 1.0), r=0.25, length=2.0 -->
+    <body name="pillar_2" pos="3 -5 1.0">
+      <geom type="cylinder" size="0.25 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- pillar_3: SDF pos=(8, 3, 1.0), r=0.30, length=2.0 -->
+    <body name="pillar_3" pos="8 3 1.0">
+      <geom type="cylinder" size="0.30 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- pillar_4: SDF pos=(-9, -3, 1.0), r=0.25, length=2.0 -->
+    <body name="pillar_4" pos="-9 -3 1.0">
+      <geom type="cylinder" size="0.25 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- BARRELS (static cylinders scattered in corridors)                 -->
+    <!-- SDF: r=0.3, length=1.0 (centre z=0.5) → MJCF size="0.3 0.5"     -->
+    <!-- ================================================================ -->
+
+    <body name="barrel_1" pos="-6.0 2.0 0.5">
+      <geom type="cylinder" size="0.3 0.5" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_2" pos="-5.4 2.0 0.5">
+      <geom type="cylinder" size="0.3 0.5" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_3" pos="-5.7 2.55 0.5">
+      <geom type="cylinder" size="0.3 0.5" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_4" pos="11.0 0.0 0.5">
+      <geom type="cylinder" size="0.3 0.5" contype="1" conaffinity="1"/>
+    </body>
+    <body name="barrel_5" pos="11.0 -1.0 0.5">
+      <geom type="cylinder" size="0.3 0.5" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- ================================================================ -->
+    <!-- CRATES (box obstacles, static for training stability)             -->
+    <!-- SDF: 0.6×0.6×0.6 crates → MJCF size="0.3 0.3 0.3" at z=0.3     -->
+    <!-- ================================================================ -->
+
+    <body name="crate_1" pos="1.0 3.0 0.3">
+      <geom type="box" size="0.3 0.3 0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="crate_2" pos="-3.0 -7.0 0.3">
+      <geom type="box" size="0.3 0.3 0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="crate_3" pos="7.0 -5.0 0.3">
+      <geom type="box" size="0.3 0.3 0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="crate_4" pos="-7.0 -2.0 0.3">
+      <geom type="box" size="0.3 0.3 0.3" contype="1" conaffinity="1"/>
+    </body>
+    <body name="crate_5" pos="5.0 7.0 0.3">
+      <geom type="box" size="0.3 0.3 0.3" contype="1" conaffinity="1"/>
+    </body>
+
+  </worldbody>
+
+</mujoco>
