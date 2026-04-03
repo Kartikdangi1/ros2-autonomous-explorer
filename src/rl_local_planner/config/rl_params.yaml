@@ -2,7 +2,7 @@
 rl_controller:
   ros__parameters:
     # Path to the exported ONNX model
-    model_path: ""
+    model_path: "/home/kartik/ros2-autonomous-explorer/models/explorer_ppo.onnx"
 
     # Inference rate (Hz) — matches training step rate
     inference_rate: 10.0

@@ -6,6 +6,8 @@ Autonomous exploration robot using Next-Best-View (NBV) planning, multi-sensor f
 
 A 4WD Mecanum holonomic robot that explores an unknown maze environment autonomously. It fuses LiDAR, radar, and RGB-D depth into a single scan, builds a 2D occupancy map with SLAM Toolbox, and continuously computes the next best viewpoint to maximise frontier coverage.
 
+An optional RL local planner replaces Nav2's DWB controller with a PPO-trained policy, trained headlessly in MuJoCo at 10–40× Gazebo speed.
+
 ### System Data Flow
 
 ![Data Flow](src/docs/data_flow.png)
@@ -33,14 +35,30 @@ src/
 │   │   ├── mapping.launch.py
 │   │   └── navigation.launch.py
 │   ├── config/                 # YAML parameters for all subsystems
-│   └── urdf/                   # Robot model + Gazebo world
-├── rl_local_planner/           # RL-based local planner (optional extension)
-│   ├── rl_local_planner/       # Python library (gym env, reward, feature extractor)
-│   ├── scripts/                # Training, inference, and ONNX export
+│   └── urdf/                   # Robot model + MuJoCo/Gazebo worlds
+├── rl_local_planner/
+│   ├── rl_local_planner/       # Python library (envs, reward, feature extractor, curriculum)
+│   ├── scripts/                # Training, testing, and ONNX export
 │   ├── launch/                 # Training + inference launch files
 │   ├── config/                 # RL hyperparameters + controller params
 │   └── models/                 # Trained ONNX models
 └── sensor_fusion/              # Multi-sensor fusion node
+
+models/
+└── explorer_ppo.onnx           # Exported ONNX policy for inference
+
+rl_best_model/
+└── best_model.zip              # Best SB3 checkpoint (by eval reward)
+
+rl_checkpoints/
+├── ppo_step_*.zip              # Periodic checkpoints
+├── ppo_final.zip               # Final checkpoint
+└── vec_normalize.pkl           # VecNormalize obs/reward stats
+
+scripts/
+├── test_mujoco_model.py        # Headless or visual evaluation script
+├── benchmark.py                # Speed benchmark
+└── monitor_training.sh         # TensorBoard + log tail helper
 ```
 
 ## Quick Start
@@ -110,9 +128,9 @@ Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps
 | RGB-D Camera | 0.3–6 m depth range |
 | Forward Radar | 90° FOV, 50 m range |
 
-## RL Local Planner (Optional Extension)
+## RL Local Planner
 
-A PPO-trained reinforcement learning policy that replaces Nav2's DWB controller as the local planner. The RL agent learns to navigate toward waypoints while avoiding obstacles, trained entirely in the Gazebo simulation.
+A PPO-trained reinforcement learning policy that replaces Nav2's DWB controller as the local planner. The RL agent learns to navigate toward waypoints while avoiding obstacles. Training uses a **MuJoCo backend** for 10–40× faster simulation than Gazebo; the trained policy deploys back into ROS2 via ONNX inference.
 
 ### Architecture
 
@@ -124,39 +142,55 @@ NBV goal provider → Nav2 BT → SmacPlanner2D → /plan (global path)
                               RL controller → /cmd_vel (local control)
 ```
 
-### Training
+### Training with MuJoCo (recommended)
 
-**Step 1: Launch the simulation (terminal 1)**
-
-```bash
-ros2 launch rl_local_planner train.launch.py
-# Optional: use_rviz:=true to visualize during training
-```
-
-**Step 2: Run the training script (terminal 2)**
+No Gazebo or ROS2 required — runs headlessly.
 
 ```bash
-python3 src/rl_local_planner/scripts/train_ppo.py \
-    --config src/rl_local_planner/config/training_config.yaml
+python3 src/rl_local_planner/scripts/train_ppo.py --sim mujoco
 ```
 
-**Step 3: Monitor with TensorBoard (terminal 3)**
+Monitor training with TensorBoard:
 
 ```bash
 tensorboard --logdir ./tb_logs/
 ```
 
-Training uses curriculum learning across 3 stages:
+### Training with Gazebo (ROS2 required)
 
-| Stage | Goal Distance | Conditions | Advances when |
-|-------|--------------|------------|---------------|
-| 1 (easy) | 1–2 m | Open-area spawns only | Success rate > 70% |
-| 2 (medium) | 2–4 m | All spawn points | Success rate > 60% |
-| 3 (hard) | 3–6 m | All spawns + dynamics randomization | — |
+```bash
+# Terminal 1 — launch simulation
+ros2 launch rl_local_planner train.launch.py
 
-Domain randomization includes: random spawn/goal positions, LiDAR noise, odometry noise, action delay, and velocity scaling (stage 3).
+# Terminal 2 — run training
+python3 src/rl_local_planner/scripts/train_ppo.py \
+    --config src/rl_local_planner/config/training_config.yaml
+```
 
-### Export Trained Model
+### Curriculum
+
+Training uses 4-stage curriculum learning with automatic promotion based on success rate:
+
+| Stage | Goal Distance | Max Steps | Conditions | Advances when |
+|-------|--------------|-----------|------------|---------------|
+| 0 (bootstrap) | 0.3–0.8 m | 200 | Fixed spawn cluster | Success rate > 80% |
+| 1 (easy) | 0.8–2 m | 200 | All spawn points | Success rate > 70% |
+| 2 (medium) | 2–4 m | 300 | All spawns, full noise | Success rate > 60% |
+| 3 (hard) | 3–6 m | 400 | All spawns + dynamics randomization | — |
+
+Domain randomization (stage 3): friction (0.7–1.3×), velocity scale (0.8–1.2×), action delay (0–2 steps), LiDAR noise, odometry noise.
+
+### Trained Model Performance
+
+Evaluated on `best_model.zip` (1.5 M training timesteps):
+
+| Stage | Goal Range | Success Rate |
+|-------|-----------|-------------|
+| 1 — easy | 0.8–2 m | ~90% |
+| 2 — medium | 2–4 m | ~87% |
+| 3 — hard | 3–6 m | ~70% |
+
+### Export to ONNX
 
 ```bash
 python3 src/rl_local_planner/scripts/export_onnx.py \
@@ -164,7 +198,38 @@ python3 src/rl_local_planner/scripts/export_onnx.py \
     --output ./models/explorer_ppo.onnx
 ```
 
-### Run with RL Controller
+The script exports, then runs a verification pass with ONNX Runtime and prints the output shape.
+
+### Test the Trained Model
+
+**Headless (stats only):**
+
+```bash
+python3 scripts/test_mujoco_model.py \
+    --model rl_best_model/best_model.zip \
+    --stage 3 --episodes 20
+```
+
+**Visual simulation (MuJoCo viewer window):**
+
+```bash
+python3 scripts/test_mujoco_model.py \
+    --model rl_best_model/best_model.zip \
+    --stage 3 --episodes 5 --render
+```
+
+A window opens showing the robot navigating the maze. A green sphere marks the current goal. Use `--delay` to control playback speed (default `0.05` s/step = real-time; `0` = maximum speed).
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model` | `rl_best_model/best_model.zip` | Checkpoint to evaluate |
+| `--stage` | `2` | Curriculum stage (0–3) |
+| `--episodes` | `5` | Number of episodes to run |
+| `--max-steps` | curriculum default | Override episode step limit |
+| `--render` | off | Open MuJoCo viewer window |
+| `--delay` | `0.05` | Sleep between steps when rendering (seconds) |
+
+### Deploy with ROS2
 
 ```bash
 ros2 launch rl_local_planner rl_exploration.launch.py \
@@ -177,13 +242,15 @@ The default (`use_rl_controller:=false`) launches the original DWB system — no
 
 | Module | Role |
 |--------|------|
-| `obs_builder.py` | Shared observation construction (costmap 84×84, LiDAR 360, goal vector, velocity) |
-| `reward.py` | Normalized reward: goal progress, collision penalty, proximity, smoothness |
+| `obs_builder.py` | Shared observation construction (costmap 84×84, LiDAR 360-ray, goal vector, velocity) |
+| `reward.py` | Normalized reward: goal progress, collision penalty, proximity shaping, smoothness |
 | `feature_extractor.py` | Custom CNN (costmap) + MLP (scan) feature extractor for SB3 |
-| `curriculum.py` | 3-stage curriculum with success-rate triggers |
+| `curriculum.py` | 4-stage curriculum with success-rate triggers and per-stage step limits |
+| `mujoco_env.py` | Gymnasium env backed by MuJoCo — identical interface to GazeboExplorerEnv |
+| `mujoco_sim.py` | Ray-cast LiDAR simulation and costmap construction inside MuJoCo |
 | `gym_env.py` | Gymnasium wrapper around Gazebo (scan-gated sync, costmap collision detection) |
-| `onnx_inference.py` | ONNX model loading with graceful degradation |
-| `rl_controller_node.py` | Inference node: carrot-point goal extraction, safety layer, 10 Hz cmd_vel |
+| `onnx_inference.py` | ONNX model loading and inference with graceful degradation |
+| `rl_controller_node.py` | ROS2 inference node: carrot-point extraction, safety layer, 10 Hz cmd_vel |
 
 ### Configuration
 
@@ -197,4 +264,4 @@ The default (`use_rl_controller:=false`) launches the original DWB system — no
 - ROS2 Humble · Ignition Gazebo 6 · Nav2 · SLAM Toolbox
 - robot_localization EKF · imu_filter_madgwick
 - Python 3.10 · NumPy · SciPy
-- PyTorch · Stable-Baselines3 · Gymnasium · ONNX Runtime
+- MuJoCo · PyTorch · Stable-Baselines3 · Gymnasium · ONNX Runtime

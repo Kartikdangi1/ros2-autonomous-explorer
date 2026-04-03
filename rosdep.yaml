@@ -1,0 +1,68 @@
+# ============================================================
+# rosdep dependency installation
+# ============================================================
+# Install all ROS2 dependencies:
+#   cd ~/ros2-autonomous-explorer
+#   rosdep install --from-paths src --ignore-src -r -y
+#
+# This resolves all <depend>, <build_depend>, <exec_depend>,
+# and <test_depend> entries declared in package.xml files.
+# ============================================================
+#
+# Manual reference of all ROS2 dependencies across packages:
+#
+# ── Build tools ──────────────────────────────────────────────
+#   ament_cmake
+#   ament_cmake_python
+#   ament_python
+#
+# ── ROS2 core ────────────────────────────────────────────────
+#   rclpy
+#   std_msgs
+#   sensor_msgs
+#   nav_msgs
+#   geometry_msgs
+#   visualization_msgs
+#   tf2_ros
+#   tf2_geometry_msgs
+#
+# ── Navigation (Nav2) ────────────────────────────────────────
+#   nav2_costmap_2d
+#   nav2_core
+#   nav2_util
+#   nav2_msgs
+#   nav2_planner
+#   nav2_controller
+#   nav2_bt_navigator
+#   nav2_behaviors
+#   nav2_smoother
+#   nav2_lifecycle_manager
+#   nav2_navfn_planner
+#   nav2_smac_planner
+#   nav2_dwb_controller
+#   nav2_regulated_pure_pursuit_controller
+#
+# ── SLAM & Localisation ─────────────────────────────────────
+#   slam_toolbox
+#   robot_localization
+#   imu_filter_madgwick
+#
+# ── Simulation ───────────────────────────────────────────────
+#   urdf
+#   ros_gz_bridge
+#   ros_gz_image
+#   ros_gz_sim
+#   gazebo_plugins
+#
+# ── Python system packages ───────────────────────────────────
+#   python3-numpy
+#   python3-scipy
+#   python3-opencv
+#
+# ── Testing ──────────────────────────────────────────────────
+#   ament_lint_auto
+#   ament_lint_common
+#   ament_copyright
+#   ament_flake8
+#   ament_pep257
+#   python3-pytest

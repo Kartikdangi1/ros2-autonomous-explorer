@@ -283,6 +283,8 @@ def main():
                         help='Number of parallel environments (requires N Gazebo instances)')
     parser.add_argument('--sim', choices=['gazebo', 'mujoco', 'point2d'], default='gazebo',
                         help='Simulator backend (point2d: fastest, mujoco: fast headless, gazebo: full ROS2)')
+    parser.add_argument('--resume-from', type=str, default=None,
+                        help='Path to checkpoint to resume from (e.g., ./rl_checkpoints/ppo_final)')
     args = parser.parse_args()
 
     # ── Run ID ────────────────────────────────────────────────────────────
@@ -377,24 +379,38 @@ def main():
     }
 
     # ── PPO model ────────────────────────────────────────────────────────
-    model = PPO(
-        cfg.policy,
-        env,
-        learning_rate=cfg.learning_rate,
-        n_steps=cfg.n_steps,
-        batch_size=cfg.batch_size,
-        n_epochs=cfg.n_epochs,
-        gamma=cfg.gamma,
-        gae_lambda=cfg.gae_lambda,
-        clip_range=cfg.clip_range,
-        ent_coef=cfg.ent_coef,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        verbose=1,
-        tensorboard_log=cfg.tb_log_dir,
-        policy_kwargs=policy_kwargs,
-        seed=args.seed,
-    )
+    if args.resume_from and os.path.isfile(f'{args.resume_from}.zip'):
+        # Load from checkpoint
+        log.info('Loading model from checkpoint: %s', args.resume_from)
+        model = PPO.load(args.resume_from, env=env)
+
+        # Load VecNormalize stats if available
+        vec_norm_path = os.path.join(cfg.save_dir, 'vec_normalize.pkl')
+        if isinstance(env, VecNormalize) and os.path.isfile(vec_norm_path):
+            log.info('Loading VecNormalize stats from: %s', vec_norm_path)
+            env = VecNormalize.load(vec_norm_path, env)
+            model.set_env(env)
+
+        log.info('Resumed from checkpoint at step %d', model.num_timesteps)
+    else:
+        model = PPO(
+            cfg.policy,
+            env,
+            learning_rate=cfg.learning_rate,
+            n_steps=cfg.n_steps,
+            batch_size=cfg.batch_size,
+            n_epochs=cfg.n_epochs,
+            gamma=cfg.gamma,
+            gae_lambda=cfg.gae_lambda,
+            clip_range=cfg.clip_range,
+            ent_coef=cfg.ent_coef,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            verbose=1,
+            tensorboard_log=cfg.tb_log_dir,
+            policy_kwargs=policy_kwargs,
+            seed=args.seed,
+        )
 
     # ── Callbacks ────────────────────────────────────────────────────────
     os.makedirs(cfg.save_dir, exist_ok=True)

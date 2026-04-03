@@ -55,7 +55,7 @@ GOAL_MIN_CLEARANCE        = 0.20   # metres — ray must reach this close to goa
 class MuJoCoExplorerEnv(gym.Env):
     """Gymnasium env backed by MuJoCo — same interface as GazeboExplorerEnv."""
 
-    metadata = {'render_modes': []}
+    metadata = {'render_modes': ['human']}
 
     def __init__(
         self,
@@ -63,10 +63,13 @@ class MuJoCoExplorerEnv(gym.Env):
         curriculum: CurriculumManager | None = None,
         reward_weights: RewardWeights | None = None,
         seed: int | None = None,
+        render_mode: str | None = None,
     ):
         super().__init__()
         import mujoco as _mujoco  # imported here so the module loads without mujoco
         self._mujoco = _mujoco
+        self._render_mode = render_mode
+        self._viewer = None
 
         self._rng = np.random.default_rng(seed)
         self._curriculum = curriculum or CurriculumManager()
@@ -394,6 +397,47 @@ class MuJoCoExplorerEnv(gym.Env):
         )
         return build_observation(self._build_raw(x, y, yaw, vx, vy, vyaw, scan))
 
+    def render(self) -> None:
+        """Open / update the MuJoCo passive viewer window.
+
+        Call this after every env.step() to show the simulation in real time.
+        A green sphere is drawn at the current goal position so you can see
+        where the robot is headed.
+        """
+        if self._render_mode != 'human':
+            return
+
+        import mujoco.viewer as _mj_viewer
+
+        # Lazily open the viewer on first call
+        if self._viewer is None:
+            self._viewer = _mj_viewer.launch_passive(self._model, self._data)
+
+        # If the user closed the window, stop rendering quietly
+        if not self._viewer.is_running():
+            self._viewer = None
+            self._render_mode = None
+            return
+
+        # Draw goal marker in the user scene
+        with self._viewer.lock():
+            scn = self._viewer.user_scn
+            scn.ngeom = 0
+            if scn.maxgeom > 0:
+                g = scn.geoms[0]
+                self._mujoco.mjv_initGeom(
+                    g,
+                    self._mujoco.mjtGeom.mjGEOM_SPHERE,
+                    np.zeros(3),
+                    np.array([self._goal_x, self._goal_y, 0.2], dtype=np.float64),
+                    np.eye(3).flatten(),
+                    np.array([0.0, 1.0, 0.0, 0.8], dtype=np.float32),
+                )
+                g.size[:] = [0.2, 0.2, 0.2]
+                scn.ngeom = 1
+
+        self._viewer.sync()
+
     def set_curriculum_stage(self, stage: int) -> None:
         """Propagate curriculum stage from the main process to this worker.
 
@@ -405,4 +449,6 @@ class MuJoCoExplorerEnv(gym.Env):
         self._curriculum._successes.clear()
 
     def close(self) -> None:
-        pass
+        if self._viewer is not None:
+            self._viewer.close()
+            self._viewer = None

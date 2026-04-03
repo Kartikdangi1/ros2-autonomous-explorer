@@ -59,6 +59,8 @@ def export_to_onnx(checkpoint_path: str, output_path: str) -> None:
             goal_vector: torch.Tensor,
             velocity: torch.Tensor,
         ) -> torch.Tensor:
+            costmap = costmap.permute(0, 3, 1, 2).contiguous()
+
             obs = {
                 'costmap': costmap,
                 'scan': scan,
@@ -91,7 +93,7 @@ def export_to_onnx(checkpoint_path: str, output_path: str) -> None:
             'velocity': {0: 'batch'},
             'action': {0: 'batch'},
         },
-        opset_version=14,
+        opset_version=17,
     )
 
     # Verify the exported model

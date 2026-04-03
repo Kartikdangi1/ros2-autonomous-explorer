@@ -8,6 +8,7 @@ Usage:
 """
 
 import sys
+import time
 import argparse
 from pathlib import Path
 
@@ -46,6 +47,23 @@ def main():
         default=True,
         help='Use deterministic policy (no randomness)'
     )
+    parser.add_argument(
+        '--max-steps',
+        type=int,
+        default=None,
+        help='Override episode step limit (default: curriculum default of 200)'
+    )
+    parser.add_argument(
+        '--render',
+        action='store_true',
+        help='Open MuJoCo viewer window to watch the simulation'
+    )
+    parser.add_argument(
+        '--delay',
+        type=float,
+        default=0.05,
+        help='Seconds to sleep between steps when rendering (default: 0.05 = real-time)'
+    )
     args = parser.parse_args()
 
     # Load model
@@ -63,11 +81,17 @@ def main():
     stage_names = {0: 'bootstrap (0.3-0.8m)', 1: 'easy (0.8-2m)', 2: 'medium (2-4m)', 3: 'hard (3-6m)'}
     stage_name = stage_names.get(args.stage, 'unknown')
 
+    if args.max_steps is not None:
+        curriculum.config.max_steps = args.max_steps
+
+    render_mode = 'human' if args.render else None
+
     # Create environment
-    print(f"Creating MuJoCo environment (Stage {args.stage}: {stage_name})...")
+    print(f"Creating MuJoCo environment (Stage {args.stage}: {stage_name}, max_steps={curriculum.config.max_steps})...")
     env = MuJoCoExplorerEnv(
         'src/autonomous_explorer/urdf/worlds/mujoco_maze.xml',
-        curriculum=curriculum
+        curriculum=curriculum,
+        render_mode=render_mode,
     )
 
     # Run episodes
@@ -88,6 +112,9 @@ def main():
         while not done:
             action, _ = model.predict(obs, deterministic=args.deterministic)
             obs, r, term, trunc, info = env.step(action)
+            if args.render:
+                env.render()
+                time.sleep(args.delay)
             done = term or trunc
             steps += 1
             total_reward += r

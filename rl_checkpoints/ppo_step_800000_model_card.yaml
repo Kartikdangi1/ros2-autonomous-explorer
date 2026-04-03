@@ -1,9 +1,9 @@
-timestamp: '2026-04-02T20:49:01.486985+00:00'
+timestamp: '2026-04-02T21:28:47.161871+00:00'
 git_commit: d90cbb7e87614491347f1f9f944411632e69ada4
 training_config_hash: 2000d95130572200
 seed: 42
-total_timesteps: 400000
-curriculum_stage_reached: 2
+total_timesteps: 800000
+curriculum_stage_reached: 3
 eval_reward_mean: null
 eval_reward_std: null
 python_version: 3.10.12

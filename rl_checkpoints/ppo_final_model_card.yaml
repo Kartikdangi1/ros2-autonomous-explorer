@@ -1,9 +1,9 @@
-timestamp: '2026-04-01T08:24:09.594806+00:00'
-git_commit: 3d8613738be5883a258259e5272a8001260b7180
-training_config_hash: 35d39f43879535bc
+timestamp: '2026-04-02T22:38:08.005699+00:00'
+git_commit: d90cbb7e87614491347f1f9f944411632e69ada4
+training_config_hash: 2000d95130572200
 seed: 42
-total_timesteps: 750000
-curriculum_stage_reached: 0
+total_timesteps: 1500000
+curriculum_stage_reached: 3
 eval_reward_mean: null
 eval_reward_std: null
 python_version: 3.10.12
@@ -20,7 +20,7 @@ training_config:
   gae_lambda: 0.95
   clip_range: 0.2
   ent_coef: 0.02
-  total_timesteps: 750000
+  total_timesteps: 1500000
   features_dim: 128
   net_arch_pi:
   - 256
