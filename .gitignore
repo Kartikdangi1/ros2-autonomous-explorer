@@ -2,10 +2,6 @@
 build/
 install/
 log/
-*.swp
-*.swo
-*~
-.DS_Store
 
 # Python
 __pycache__/
@@ -19,29 +15,38 @@ dist/
 .vscode/
 .idea/
 *.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
 
-# Gazebo
+# Gazebo / Ignition
 .gazebo/
 .ignition/
-
-# ROS logs
-*.log
-
-# Large ML model weights
-*.pt
-*.pth
-*.onnx
-*.weights
-rl_best_model/*.zip
-rl_checkpoints/*.zip
-
-# Ignition source packages (downloaded, not part of project)
 ignition-*/
 ignition-*.tar.*
 ignition-*.dsc
 
-# Junk timestamp/session files created at workspace root
-run_*
+# ROS logs
+*.log
+
+# ML model weights and training artifacts
+*.pt
+*.pth
+*.onnx
+*.onnx.data
+*.weights
+*.npz
+rl_best_model/
+rl_checkpoints/
+tb_logs/
+models/
+
+# Temp / scratch files
+fixes.txt
+TODO.txt
+traintest.txt
+run_*/
 mm/
 CET
 Mar
