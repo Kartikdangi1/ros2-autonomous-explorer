@@ -393,6 +393,8 @@ def main():
 
         log.info('Resumed from checkpoint at step %d', model.num_timesteps)
     else:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        log.info('Training device: %s', device)
         model = PPO(
             cfg.policy,
             env,
@@ -410,6 +412,7 @@ def main():
             tensorboard_log=cfg.tb_log_dir,
             policy_kwargs=policy_kwargs,
             seed=args.seed,
+            device=device,
         )
 
     # ── Callbacks ────────────────────────────────────────────────────────

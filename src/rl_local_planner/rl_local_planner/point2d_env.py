@@ -38,9 +38,9 @@ from scipy.ndimage import maximum_filter
 
 def _lidar_to_costmap_fast(
     scan_metres: np.ndarray,
-    resolution: float = 0.12,
+    resolution: float = 0.05,
     size: int = 84,
-    inflation_cells: int = 2,
+    inflation_cells: int = 4,
 ) -> np.ndarray:
     """Vectorized lidar→costmap. Same output as mujoco_sim.lidar_to_costmap."""
     center = size // 2
@@ -62,14 +62,14 @@ def _lidar_to_costmap_fast(
 
 # ── Constants (match mujoco_env.py) ─────────────────────────────────────────
 COLLISION_THRESHOLD = 0.15    # metres — LiDAR-based collision
-STUCK_WINDOW        = 25      # steps
-STUCK_THRESHOLD     = 0.05    # metres
+STUCK_WINDOW        = 60      # steps — sync with mujoco_env.py
+STUCK_THRESHOLD     = 0.15    # metres — 0.05 triggered false-positives in narrow corridors
 PHYSICS_TIMESTEP    = 0.05    # 20 Hz
 ROBOT_RADIUS        = 0.25    # metres — collision body radius
 SPAWN_MIN_CLEARANCE = 0.30    # metres
 MAX_SPAWN_RETRIES   = 10
 MAX_GOAL_RETRIES    = 20
-GOAL_MIN_CLEARANCE  = 0.20    # metres
+GOAL_MIN_CLEARANCE  = 0.40    # metres — 8-cell margin (8 × 0.05 m), avoids goals tight against walls
 
 
 # ── Maze geometry (from mujoco_maze.xml) ────────────────────────────────────
@@ -441,6 +441,9 @@ class Point2DExplorerEnv(gym.Env):
         terminated = goal_reached or collision
         truncated = timeout or stuck
 
+        if collision and self._step_count < 20:
+            self._curriculum.blacklist_goal(self._goal_x, self._goal_y)
+
         # ── Reward ───────────────────────────────────────────────────────
         reward, reward_info = compute_reward(
             curr_goal_distance=goal_dist,
@@ -475,7 +478,7 @@ class Point2DExplorerEnv(gym.Env):
         raw.costmap = _lidar_to_costmap_fast(scan_metres)
         raw.costmap_width = COSTMAP_OBS_SIZE
         raw.costmap_height = COSTMAP_OBS_SIZE
-        raw.costmap_resolution = 0.12
+        raw.costmap_resolution = 0.05
         raw.scan_ranges = scan_metres
         raw.robot_x = self._x
         raw.robot_y = self._y

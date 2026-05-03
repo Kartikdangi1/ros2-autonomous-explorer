@@ -7,11 +7,14 @@ rl_controller_node.py (inference) to guarantee observation parity.
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
+
+_log = logging.getLogger(__name__)
 
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -67,7 +70,7 @@ def build_costmap_obs(raw: RawSensorData) -> np.ndarray:
         (COSTMAP_OBS_SIZE, COSTMAP_OBS_SIZE),
         interpolation=cv2.INTER_AREA,
     )
-    return resized[:, :, np.newaxis].astype(np.uint8)
+    return resized.reshape(COSTMAP_OBS_SIZE, COSTMAP_OBS_SIZE, 1)
 
 
 def build_scan_obs(raw: RawSensorData) -> np.ndarray:
@@ -83,6 +86,12 @@ def build_scan_obs(raw: RawSensorData) -> np.ndarray:
 
 def build_goal_obs(raw: RawSensorData) -> np.ndarray:
     """Relative goal vector in robot body frame, normalised by GOAL_NORM."""
+    if not (math.isfinite(raw.robot_x) and math.isfinite(raw.robot_y)
+            and math.isfinite(raw.robot_yaw) and math.isfinite(raw.goal_x)
+            and math.isfinite(raw.goal_y)):
+        _log.warning('build_goal_obs: non-finite pose/goal values — returning zeros')
+        return np.zeros(2, dtype=np.float32)
+
     dx_world = raw.goal_x - raw.robot_x
     dy_world = raw.goal_y - raw.robot_y
 
@@ -97,6 +106,10 @@ def build_goal_obs(raw: RawSensorData) -> np.ndarray:
 
 def build_velocity_obs(raw: RawSensorData) -> np.ndarray:
     """Normalise body-frame velocity to [-1, 1]."""
+    if not np.all(np.isfinite([raw.robot_vx, raw.robot_vy, raw.robot_vyaw])):
+        _log.warning('build_velocity_obs: non-finite velocity values — returning zeros')
+        return np.zeros(3, dtype=np.float32)
+
     vel = np.array([
         raw.robot_vx / MAX_VEL_X,
         raw.robot_vy / MAX_VEL_Y,

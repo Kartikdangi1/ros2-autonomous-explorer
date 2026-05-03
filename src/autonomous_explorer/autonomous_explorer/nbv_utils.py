@@ -13,6 +13,7 @@ Core data structures and algorithms for Next Best View exploration:
 import numpy as np
 import threading
 from scipy.spatial import KDTree
+from skimage.draw import line as bresenham_line
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -158,20 +159,31 @@ class OccupancyMapper:
         delta = np.zeros((self.height, self.width), dtype=np.float32)
 
         for i in range(n):
-            # Clip endpoint so _bresenham always stays within array bounds.
+            # Clip endpoint so bresenham_line always stays within array bounds.
             # We correct the final cell to 'occupied' below if the true
             # endpoint was inside the map.
             ex = int(np.clip(egx[i], 0, self.width - 1))
             ey = int(np.clip(egy[i], 0, self.height - 1))
 
-            ray = self._bresenham(rgx, rgy, ex, ey)
-            for j, (px, py) in enumerate(ray):
-                if not self.is_in_map(px, py):
-                    break
-                if j == len(ray) - 1 and in_map[i]:
-                    delta[py, px] += self.log_occ
-                else:
-                    delta[py, px] += self.log_free
+            # skimage.draw.line returns (row_indices, col_indices) — rows=y, cols=x
+            rr, cc = bresenham_line(rgy, rgx, ey, ex)
+
+            # Clip to map bounds (bresenham_line may go slightly out)
+            in_bounds = (
+                (rr >= 0) & (rr < self.height) &
+                (cc >= 0) & (cc < self.width)
+            )
+            rr, cc = rr[in_bounds], cc[in_bounds]
+            if len(rr) == 0:
+                continue
+
+            # All cells except the last are free; the last is occupied if the
+            # true endpoint was inside the map.
+            delta[rr[:-1], cc[:-1]] += self.log_free
+            if in_map[i]:
+                delta[rr[-1], cc[-1]] += self.log_occ
+            else:
+                delta[rr[-1], cc[-1]] += self.log_free
 
         # Single lock acquisition — just array arithmetic, very fast.
         with self._lock:
@@ -199,15 +211,16 @@ class OccupancyMapper:
         a full binary_dilation on every A* query — especially important now
         that planning runs in a background thread and can be called frequently.
         """
-        # Read the map version atomically so we can decide whether the cache
-        # is still valid without holding the lock during the expensive dilation.
+        # Read the map version and check cache validity atomically under the
+        # lock — prevents a concurrent update_with_scan_points() from
+        # incrementing _map_version between the read and the cache check,
+        # which would return a stale grid to A*.
         with self._lock:
             current_version = self._map_version
-
-        if (self._inflated_cache is not None and
-                self._inflated_cache_version == current_version and
-                self._inflated_cache_radius == robot_radius):
-            return self._inflated_cache
+            if (self._inflated_cache is not None and
+                    self._inflated_cache_version == current_version and
+                    self._inflated_cache_radius == robot_radius):
+                return self._inflated_cache
 
         from scipy.ndimage import binary_dilation
         grid = self.get_occupancy_grid()
@@ -218,15 +231,20 @@ class OccupancyMapper:
         struct = (x * x + y * y <= inflate_cells * inflate_cells)
         inflated = binary_dilation(occupied, structure=struct).astype(np.uint8)
 
-        # Store in cache.  If the map was updated while we were computing, the
-        # next caller will see current_version != _map_version and recompute.
-        self._inflated_cache = inflated
-        self._inflated_cache_radius = robot_radius
-        self._inflated_cache_version = current_version
+        # Re-acquire lock to write cache atomically.  If the map was updated
+        # while we were computing, the next caller will recompute.
+        with self._lock:
+            self._inflated_cache = inflated
+            self._inflated_cache_radius = robot_radius
+            self._inflated_cache_version = current_version
         return inflated
 
+    # Radii pre-warmed by the background worker — covers all values used by
+    # GoalValidator so validation calls always hit the cache.
+    _INFLATE_RADII = (0.25, 0.30, 0.35, 0.40)
+
     def _inflate_bg_worker(self):
-        """A7: Proactively recompute inflated grid whenever the map changes."""
+        """A7: Proactively recompute inflated grids for all standard radii."""
         last_warmed = -1
         while True:
             self._inflate_trigger.wait(timeout=2.0)
@@ -234,7 +252,8 @@ class OccupancyMapper:
             with self._lock:
                 v = self._map_version
             if v != last_warmed:
-                self.get_inflated_grid(self._default_robot_radius)
+                for r in self._INFLATE_RADII:
+                    self.get_inflated_grid(r)
                 last_warmed = v
 
     def get_inflated_grid_coarse(self, robot_radius=0.3, factor=2):
@@ -576,37 +595,50 @@ class NBVScorer:
         eff_topo_w  = weight_topo_penalty * (1.0 - 0.7 * unc_scale)
         eff_dist_w  = self.weight_distance * (1.0 + unc_scale)
 
-        scored = []
-        for i, c in enumerate(candidates):
-            vis        = float(vis_scores[i])
-            dist_cost  = float(np.linalg.norm(c.position - robot_pose[:2])
-                               / self.exploration_radius)
-            orient_cost = abs(_normalize_angle(robot_pose[2] - c.orientation)) / np.pi
+        C = len(candidates)
+        C_pos = np.array([c.position for c in candidates], dtype=np.float64)  # (C, 2)
 
-            # Extension 4: topological revisit penalty (B3-scaled)
-            topo_penalty = (eff_topo_w
-                            if topo_map is not None and topo_map.is_near_visited(c.position)
-                            else 0.0)
+        # Vectorised distance and orientation costs (one batch, no per-candidate allocs)
+        dist_costs = (np.linalg.norm(C_pos - robot_pose[:2], axis=1)
+                      / self.exploration_radius)  # (C,)
+        orient_costs = np.array([
+            abs(_normalize_angle(robot_pose[2] - c.orientation)) / np.pi
+            for c in candidates], dtype=np.float64)  # (C,)
 
-            # B1: frontier-size bonus — sum of lengths of nearby jump edges
-            if edge_lengths is not None:
-                dists    = np.linalg.norm(edge_mids - c.position, axis=1)
-                nearby   = dists < self.exploration_radius
-                frontier_size = float(edge_lengths[nearby].sum()) / total_length
-            else:
-                frontier_size = 0.0
+        # B3: topological penalty per candidate
+        topo_penalties = np.array([
+            eff_topo_w if (topo_map is not None
+                           and topo_map.is_near_visited(c.position)) else 0.0
+            for c in candidates], dtype=np.float64)  # (C,)
 
-            total = (self.weight_visibility * vis
-                     - eff_dist_w * dist_cost
-                     - self.weight_orientation * orient_cost
-                     - topo_penalty
-                     + self.weight_frontier_size * frontier_size)
+        # B1: frontier-size — vectorised over all candidates simultaneously
+        if edge_lengths is not None:
+            # dists_all[c, j] = distance from candidate c to edge midpoint j
+            dists_all = np.linalg.norm(
+                edge_mids[None, :, :] - C_pos[:, None, :], axis=2)  # (C, J)
+            nearby_all = dists_all < self.exploration_radius           # (C, J)
+            frontier_sizes = (
+                (edge_lengths[None, :] * nearby_all).sum(axis=1) / total_length
+            )  # (C,)
+        else:
+            frontier_sizes = np.zeros(C, dtype=np.float64)
 
-            scored.append(ScoredCandidate(
-                candidate=c, visibility_score=vis,
-                distance_cost=dist_cost, orientation_cost=orient_cost,
-                total_score=total))
+        totals = (self.weight_visibility * vis_scores
+                  - eff_dist_w * dist_costs
+                  - self.weight_orientation * orient_costs
+                  - topo_penalties
+                  + self.weight_frontier_size * frontier_sizes)
 
+        scored = [
+            ScoredCandidate(
+                candidate=candidates[i],
+                visibility_score=float(vis_scores[i]),
+                distance_cost=float(dist_costs[i]),
+                orientation_cost=float(orient_costs[i]),
+                total_score=float(totals[i]),
+            )
+            for i in range(C)
+        ]
         scored.sort(key=lambda s: s.total_score, reverse=True)
         return scored
 
@@ -753,15 +785,20 @@ class CoverageTracker:
 
     @staticmethod
     def compute_coverage(mapper: 'OccupancyMapper') -> float:
-        """Return fraction of known (non-zero) cells that are free, ∈ [0, 1]."""
+        """Return fraction of total map cells that have been explored (known), ∈ [0, 1].
+
+        A cell is 'known' when log-odds != 0 (SLAM assigned it free or occupied).
+        Unknown/unvisited cells stay at log-odds == 0.
+        """
         lo_free_thr = np.log(FREE_PROB_THRESHOLD / (1.0 - FREE_PROB_THRESHOLD))
         lo_occ_thr  = np.log(OCCUPIED_PROB_THRESHOLD / (1.0 - OCCUPIED_PROB_THRESHOLD))
         with mapper._lock:
             lo = mapper.log_odds
             free     = int(np.sum(lo < lo_free_thr))
             occupied = int(np.sum(lo > lo_occ_thr))
-        total = free + occupied
-        return float(free) / total if total > 0 else 0.0
+            total_cells = lo.size
+        known = free + occupied
+        return float(known) / total_cells if total_cells > 0 else 0.0
 
     @staticmethod
     def adaptive_radius(coverage: float, base_radius: float = 15.0) -> float:
@@ -883,7 +920,8 @@ class TopologicalMap:
 
     def __init__(self, node_spacing: float = 1.5,
                  visited_radius: float = 2.0,
-                 max_nodes: int = 2000):
+                 max_nodes: int = 2000,
+                 logger=None):
         self.node_spacing = node_spacing
         self.visited_radius = visited_radius
         self.max_nodes = max_nodes
@@ -891,6 +929,8 @@ class TopologicalMap:
         self._positions: Optional[np.ndarray] = None   # Nx2, KDTree cache
         self._tree: Optional[KDTree] = None
         self._lock = threading.Lock()
+        self._logger = logger
+        self._max_nodes_warn_time: float = 0.0
 
     def update(self, robot_pose: np.ndarray, mapper: 'OccupancyMapper') -> None:
         """Mark nearest node visited or add a new node at the robot's position."""
@@ -903,7 +943,33 @@ class TopologicalMap:
                     self._nodes[idx].visit_time = _time.monotonic()
                     return
             if len(self._nodes) >= self.max_nodes:
-                return
+                # Rate-limited warning
+                now = _time.monotonic()
+                if now - self._max_nodes_warn_time > 30.0:
+                    msg = (f'TopologicalMap at capacity ({self.max_nodes} nodes) '
+                           '— evicting oldest visited node (LRU)')
+                    if self._logger is not None:
+                        self._logger.warning(msg)
+                    else:
+                        print(f'[TopologicalMap] WARNING: {msg}')
+                    self._max_nodes_warn_time = now
+
+                # LRU eviction: remove the visited node with the oldest visit_time
+                evict_idx = min(
+                    (i for i, n in enumerate(self._nodes) if n.visited),
+                    key=lambda i: self._nodes[i].visit_time,
+                    default=0,
+                )
+                self._nodes.pop(evict_idx)
+                # Fix neighbor index references
+                for n in self._nodes:
+                    n.neighbor_indices = [
+                        (j if j < evict_idx else j - 1)
+                        for j in n.neighbor_indices
+                        if j != evict_idx
+                    ]
+                self._positions = np.array([n.position for n in self._nodes])
+                self._tree = KDTree(self._positions) if self._nodes else None
             gx, gy = mapper.world_to_grid(pos[0], pos[1])
             node = TopoNode(position=pos.copy(), cell=(gx, gy),
                             visited=True, visit_time=_time.monotonic())

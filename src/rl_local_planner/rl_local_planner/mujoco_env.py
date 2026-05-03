@@ -40,8 +40,8 @@ from rl_local_planner.curriculum import CurriculumManager
 
 # ── Constants (match gym_env.py exactly) ─────────────────────────────────────
 COLLISION_LIDAR_THRESHOLD = 0.15   # metres — inside chassis = certain collision
-STUCK_WINDOW              = 50     # steps
-STUCK_THRESHOLD           = 0.05   # metres
+STUCK_WINDOW              = 60     # steps — sync with point2d_env.py
+STUCK_THRESHOLD           = 0.15   # metres — 0.05 triggered false-positives in narrow corridors
 COLLISION_GRACE_STEPS     = 5      # steps post-reset where contact check is skipped
 FOOTPRINT_HALF_X          = 0.25   # metres
 FOOTPRINT_HALF_Y          = 0.15
@@ -49,7 +49,7 @@ PHYSICS_TIMESTEP          = 0.05   # 20 Hz — set in mujoco_maze.xml <option>
 SPAWN_MIN_CLEARANCE       = 0.30   # metres — LiDAR min after spawn; below = in a wall
 MAX_SPAWN_RETRIES         = 10
 MAX_GOAL_RETRIES          = 20
-GOAL_MIN_CLEARANCE        = 0.20   # metres — ray must reach this close to goal unobstructed
+GOAL_MIN_CLEARANCE        = 0.40   # metres — 8-cell margin (8 × 0.05 m), avoids goals tight against walls
 
 
 class MuJoCoExplorerEnv(gym.Env):
@@ -310,6 +310,9 @@ class MuJoCoExplorerEnv(gym.Env):
         terminated = goal_reached or collision
         truncated  = timeout or stuck
 
+        if collision and self._step_count < 20 and self._collision_grace_remaining == 0:
+            self._curriculum.blacklist_goal(self._goal_x, self._goal_y)
+
         # ── Reward ───────────────────────────────────────────────────────
         reward, reward_info = compute_reward(
             curr_goal_distance=goal_dist,
@@ -377,7 +380,7 @@ class MuJoCoExplorerEnv(gym.Env):
         raw.costmap        = lidar_to_costmap(scan_metres)
         raw.costmap_width  = COSTMAP_OBS_SIZE   # already 84×84
         raw.costmap_height = COSTMAP_OBS_SIZE
-        raw.costmap_resolution = 0.12
+        raw.costmap_resolution = 0.05
         raw.scan_ranges    = scan_metres
         raw.robot_x        = x
         raw.robot_y        = y

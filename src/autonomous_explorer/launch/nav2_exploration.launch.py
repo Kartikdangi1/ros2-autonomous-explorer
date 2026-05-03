@@ -70,11 +70,11 @@ MAPPING_LAUNCH      = os.path.join(PKG, 'launch', 'mapping.launch.py')
 NAVIGATION_LAUNCH   = os.path.join(PKG, 'launch', 'navigation.launch.py')
 
 # ── Spawn position ────────────────────────────────────────────────────────────
-# World (0, -3): open central area with ~3 m clearance to all nearest walls.
-# (Old SW corner at (-11,-11) left only 1.5 m to perimeter walls, causing the
-#  first NBV goals to hug the west wall and the global planner to route into it.)
-SPAWN_X = -11.0
-SPAWN_Y = -11.0
+# South room: open area below wall_h_south_corridor (y=-5), well clear of all walls.
+# (-11,-11) had ramp_south at (-9,-9,tilted) and start_marker at (-10,-10)
+# right next to spawn, immediately distorting SLAM and physically wedging the robot.
+SPAWN_X = -3.0
+SPAWN_Y = -8.0
 SPAWN_Z = 0.15
 
 
@@ -275,17 +275,28 @@ def launch_setup(context, *args, **kwargs):
                 'max_range': 19.0,
                 'candidate_offset': 1.0,   # was 0.5 — keeps goals ≥1 m from walls
                 'sample_spacing': 1.0,
-                'exploration_radius': 15.0,
+                'exploration_radius': 10.0,
                 'weight_visibility': 3.0,
                 'weight_distance': 1.0,
                 'weight_orientation': 0.5,
                 'num_rays': 72,
                 'goal_tolerance': 0.8,
-                'min_visibility_threshold': 0.05,
+                'min_visibility_threshold': 0.045,  # was 0.05 — allow low-visibility corners
             }],
             output='screen')])
 
-    # ── 10. RViz2 ─────────────────────────────────────────────────────────────
+    # ── 10. Path speed limiter — curvature-based DWB speed control — delayed 22 s ──
+    # Waits for: Nav2 action server active (same gate as NBV)
+    path_speed_limiter = TimerAction(
+        period=22.0,
+        actions=[Node(
+            package='autonomous_explorer',
+            executable='path_speed_limiter_node.py',
+            name='path_speed_limiter',
+            parameters=[{'use_sim_time': use_sim_time}],
+            output='screen')])
+
+    # ── 11. RViz2 ─────────────────────────────────────────────────────────────
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -319,6 +330,9 @@ def launch_setup(context, *args, **kwargs):
 
         # Mission controller (T+22, after Nav2 action server is active)
         nbv_goal_provider,
+
+        # Speed limiter (T+22, curvature-based DWB velocity scaling)
+        path_speed_limiter,
 
         # Visualisation
         rviz,

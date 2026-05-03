@@ -17,6 +17,7 @@ sx, sy, syaw = provider.get_scan_pose(scan) # (float, float, float) or None
 """
 
 import math
+import time
 
 import numpy as np
 import rclpy
@@ -41,6 +42,8 @@ class PoseProvider:
         self._base_frame = base_frame
         self._tf_buffer = Buffer()
         self._tf_listener = TransformListener(self._tf_buffer, node)
+        self._tf_fallback_count: int = 0
+        self._tf_fallback_last_warn: float = 0.0
 
     # ── Public interface ───────────────────────────────────────────────────────
 
@@ -82,8 +85,15 @@ class PoseProvider:
                 timeout=rclpy.duration.Duration(seconds=0.1))
             x, y, yaw = self._tf_to_xyyaw(tf)
             return x, y, yaw
-        except Exception:
-            pass
+        except Exception as e:
+            self._tf_fallback_count += 1
+            now = time.time()
+            if now - self._tf_fallback_last_warn > 10.0:
+                self._node.get_logger().warning(
+                    f'TF fallback #{self._tf_fallback_count}: scan frame '
+                    f'"{scan.header.frame_id}" → "{self._map_frame}" '
+                    f'unavailable ({e}). Using robot pose instead.')
+                self._tf_fallback_last_warn = now
 
         # Fallback: use the robot pose (base_link → map, latest available)
         pose = self.get_robot_pose()
