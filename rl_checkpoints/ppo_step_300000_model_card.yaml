@@ -1,0 +1,47 @@
+timestamp: '2026-03-30T11:32:33.142845+00:00'
+git_commit: 3d8613738be5883a258259e5272a8001260b7180
+training_config_hash: a880d2d97be3a170
+seed: 42
+total_timesteps: 300000
+curriculum_stage_reached: 3
+eval_reward_mean: null
+eval_reward_std: null
+python_version: 3.10.12
+torch_version: !!python/object/new:torch.torch_version.TorchVersion
+- 2.9.1+cu128
+sb3_version: 2.7.1
+training_config:
+  policy: MultiInputPolicy
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 5
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.02
+  total_timesteps: 500000
+  features_dim: 128
+  net_arch_pi:
+  - 256
+  - 256
+  net_arch_vf:
+  - 256
+  - 256
+  normalize_reward: true
+  eval_freq: 25000
+  n_eval_episodes: 10
+  checkpoint_freq: 50000
+  tb_log_dir: ./tb_logs/
+  save_dir: ./rl_checkpoints/
+  best_model_dir: ./rl_best_model/
+  reward_progress: 5.0
+  reward_goal_reached: 25.0
+  reward_collision: -5.0
+  reward_proximity: -0.5
+  reward_smoothness: -0.1
+  reward_step_cost: -0.03
+  reward_heading: 0.2
+  reward_near_goal: 5.0
+  reward_near_goal_radius: 0.8
+  goal_tolerance: 0.6

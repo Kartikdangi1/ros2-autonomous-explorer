@@ -1,0 +1,29 @@
+<mujoco model="mujoco_robot">
+  <!--
+    Mecanum-drive robot body for MuJoCo RL training.
+
+    Free joint gives full 6-DOF kinematics; in practice only x/y/yaw are
+    used (holonomic ground vehicle).  Velocities are written directly to
+    qvel[0:3] (world-frame translation) and qvel[5] (yaw rate) — no wheel
+    joints needed.
+
+    Footprint: 0.5 m × 0.3 m (half-extents 0.25 × 0.15), mass 5.6 kg.
+    LiDAR site at z=0.175 m above base centre (matches URDF sensor tower).
+  -->
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.15">
+      <freejoint name="base_freejoint"/>
+      <geom name="robot_body"
+            type="box"
+            size="0.25 0.15 0.12"
+            mass="5.6"
+            contype="1"
+            conaffinity="1"
+            friction="0.01 0.005 0.0001"/>
+      <!-- Single lidar site — mujoco_sim.simulate_lidar() casts rays from here -->
+      <site name="lidar_site" pos="0 0 0.175" size="0.01" rgba="1 0 0 0.5"/>
+    </body>
+  </worldbody>
+
+</mujoco>

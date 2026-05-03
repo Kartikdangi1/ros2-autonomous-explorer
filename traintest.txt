@@ -1,0 +1,335 @@
+   2% ╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8,248/500,000  [ 0:19:01 < 20:18:25 , 7 it/s ][WARN] [1774618182.396386570] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   2% ╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8,248/500,000  [ 0:19:02 < 20:18:25 , 7 it/s ][INFO] [1774618183.925367846] [rl_gym_env_75790f4953c0]: Valid spawn found at (2.0, -8.0) after 2 attempts (min_range=1.68 m)
+   2% ╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9,349/500,000  [ 0:21:30 < 16:09:20 , 8 it/s ][WARN] [1774618331.411170990] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   2% ╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 9,349/500,000  [ 0:21:31 < 16:09:20 , 8 it/s ][INFO] [1774618332.938535239] [rl_gym_env_75790f4953c0]: Valid spawn found at (-10.0, -6.0) after 2 attempts (min_range=1.56 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 11          |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 0.609       |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 5           |
+|    time_elapsed         | 1404        |
+|    total_timesteps      | 10240       |
+| train/                  |             |
+|    approx_kl            | 0.012831675 |
+|    clip_fraction        | 0.183       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.33       |
+|    explained_variance   | 0.189       |
+|    learning_rate        | 0.0003      |
+|    loss                 | -0.0556     |
+|    n_updates            | 40          |
+|    policy_gradient_loss | -0.00607    |
+|    std                  | 1.03        |
+|    value_loss           | 0.165       |
+-----------------------------------------
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10,249/500,000  [ 0:23:39 < 40:00:12 , 3 it/s ][WARN] [1774618460.963243843] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10,249/500,000  [ 0:23:41 < 40:00:12 , 3 it/s ][WARN] [1774618462.541146462] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 2/10
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10,249/500,000  [ 0:23:43 < 40:00:12 , 3 it/s ][INFO] [1774618464.150613284] [rl_gym_env_75790f4953c0]: Valid spawn found at (3.0, 3.0) after 3 attempts (min_range=1.60 m)
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11,198/500,000  [ 0:25:30 < 15:57:37 , 9 it/s ][WARN] [1774618571.301555377] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11,198/500,000  [ 0:25:31 < 15:57:37 , 9 it/s ][INFO] [1774618572.884760947] [rl_gym_env_75790f4953c0]: Valid spawn found at (-4.0, -4.0) after 2 attempts (min_range=0.84 m)
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11,299/500,000  [ 0:25:44 < 16:34:24 , 8 it/s ][WARN] [1774618585.185588297] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   2% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11,299/500,000  [ 0:25:46 < 16:34:24 , 8 it/s ][INFO] [1774618587.022196407] [rl_gym_env_75790f4953c0]: Valid spawn found at (-9.0, -11.0) after 2 attempts (min_range=0.61 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 14.9        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 0.768       |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 6           |
+|    time_elapsed         | 1668        |
+|    total_timesteps      | 12288       |
+| train/                  |             |
+|    approx_kl            | 0.013319119 |
+|    clip_fraction        | 0.15        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.37       |
+|    explained_variance   | 0.263       |
+|    learning_rate        | 0.0003      |
+|    loss                 | 0.00378     |
+|    n_updates            | 50          |
+|    policy_gradient_loss | -0.00505    |
+|    std                  | 1.04        |
+|    value_loss           | 0.083       |
+-----------------------------------------
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,498/500,000  [ 0:30:42 < 18:22:47 , 7 it/s ][WARN] [1774618883.321947702] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,498/500,000  [ 0:30:43 < 18:22:47 , 7 it/s ][INFO] [1774618884.869480581] [rl_gym_env_75790f4953c0]: Valid spawn found at (-4.0, -4.0) after 2 attempts (min_range=0.86 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,599/500,000  [ 0:30:55 < 18:02:52 , 7 it/s ][WARN] [1774618896.257457065] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,599/500,000  [ 0:30:56 < 18:02:52 , 7 it/s ][INFO] [1774618897.883111498] [rl_gym_env_75790f4953c0]: Valid spawn found at (-3.0, 0.0) after 2 attempts (min_range=0.84 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,799/500,000  [ 0:31:22 < 17:50:34 , 8 it/s ][WARN] [1774618923.181990205] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,799/500,000  [ 0:31:23 < 17:50:34 , 8 it/s ][INFO] [1774618924.844200171] [rl_gym_env_75790f4953c0]: Valid spawn found at (2.0, -8.0) after 2 attempts (min_range=1.66 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,999/500,000  [ 0:31:48 < 16:05:25 , 8 it/s ][WARN] [1774618949.439228018] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 13,999/500,000  [ 0:31:50 < 16:05:25 , 8 it/s ][INFO] [1774618951.070035101] [rl_gym_env_75790f4953c0]: Valid spawn found at (-2.0, -6.0) after 2 attempts (min_range=0.85 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,148/500,000  [ 0:32:12 < 20:06:17 , 7 it/s ][WARN] [1774618973.942026224] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,148/500,000  [ 0:32:14 < 20:06:17 , 7 it/s ][INFO] [1774618975.708972547] [rl_gym_env_75790f4953c0]: Valid spawn found at (3.0, 3.0) after 2 attempts (min_range=1.61 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 14.8        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 1.34        |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 7           |
+|    time_elapsed         | 1964        |
+|    total_timesteps      | 14336       |
+| train/                  |             |
+|    approx_kl            | 0.015701942 |
+|    clip_fraction        | 0.188       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.41       |
+|    explained_variance   | 0.104       |
+|    learning_rate        | 0.0003      |
+|    loss                 | -0.0546     |
+|    n_updates            | 60          |
+|    policy_gradient_loss | -0.00455    |
+|    std                  | 1.06        |
+|    value_loss           | 0.0999      |
+-----------------------------------------
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,449/500,000  [ 0:33:09 < 26:00:25 , 5 it/s ][WARN] [1774619030.041146760] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,449/500,000  [ 0:33:10 < 26:00:25 , 5 it/s ][INFO] [1774619031.514216182] [rl_gym_env_75790f4953c0]: Valid spawn found at (-2.0, -6.0) after 2 attempts (min_range=0.81 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,598/500,000  [ 0:33:27 < 15:44:01 , 9 it/s ][WARN] [1774619048.662601508] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,598/500,000  [ 0:33:29 < 15:44:01 , 9 it/s ][INFO] [1774619050.156128438] [rl_gym_env_75790f4953c0]: Valid spawn found at (-9.0, -11.0) after 2 attempts (min_range=0.64 m)
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,898/500,000  [ 0:34:05 < 15:55:59 , 8 it/s ][WARN] [1774619086.106152403] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 14,898/500,000  [ 0:34:06 < 15:55:59 , 8 it/s ][INFO] [1774619087.629377509] [rl_gym_env_75790f4953c0]: Valid spawn found at (-11.0, -9.0) after 2 attempts (min_range=1.36 m)
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,449/500,000  [ 0:35:16 < 18:31:12 , 7 it/s ][WARN] [1774619157.116895505] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,449/500,000  [ 0:35:17 < 18:31:12 , 7 it/s ][INFO] [1774619158.756599475] [rl_gym_env_75790f4953c0]: Valid spawn found at (-11.0, -9.0) after 2 attempts (min_range=1.36 m)
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,649/500,000  [ 0:35:47 < 19:01:50 , 7 it/s ][WARN] [1774619188.462874456] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,649/500,000  [ 0:35:49 < 19:01:50 , 7 it/s ][INFO] [1774619190.200365457] [rl_gym_env_75790f4953c0]: Valid spawn found at (-3.0, 0.0) after 2 attempts (min_range=2.85 m)
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,998/500,000  [ 0:36:41 < 20:07:33 , 7 it/s ][WARN] [1774619242.250927584] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   3% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15,998/500,000  [ 0:36:42 < 20:07:33 , 7 it/s ][INFO] [1774619243.699945937] [rl_gym_env_75790f4953c0]: Valid spawn found at (0.0, -3.0) after 2 attempts (min_range=1.84 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 6.99        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 0.827       |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 8           |
+|    time_elapsed         | 2249        |
+|    total_timesteps      | 16384       |
+| train/                  |             |
+|    approx_kl            | 0.010568101 |
+|    clip_fraction        | 0.15        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.44       |
+|    explained_variance   | 0.135       |
+|    learning_rate        | 0.0003      |
+|    loss                 | -0.0142     |
+|    n_updates            | 70          |
+|    policy_gradient_loss | -0.00365    |
+|    std                  | 1.07        |
+|    value_loss           | 0.097       |
+-----------------------------------------
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,199/500,000  [ 0:41:50 < 20:57:50 , 6 it/s ][WARN] [1774619551.435330715] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,199/500,000  [ 0:41:52 < 20:57:50 , 6 it/s ][INFO] [1774619553.015542315] [rl_gym_env_75790f4953c0]: Valid spawn found at (-11.0, -9.0) after 2 attempts (min_range=1.37 m)
+------------------------------------------
+| curriculum/             |              |
+|    stage                | 0            |
+| episode/                |              |
+|    collision            | 0            |
+|    goal_distance        | 13.5         |
+|    goal_reached         | 0            |
+| safety/                 |              |
+|    min_lidar_range      | 1.21         |
+| time/                   |              |
+|    fps                  | 7            |
+|    iterations           | 9            |
+|    time_elapsed         | 2542         |
+|    total_timesteps      | 18432        |
+| train/                  |              |
+|    approx_kl            | 0.0118434075 |
+|    clip_fraction        | 0.164        |
+|    clip_range           | 0.2          |
+|    entropy_loss         | -4.46        |
+|    explained_variance   | 0.148        |
+|    learning_rate        | 0.0003       |
+|    loss                 | -0.0578      |
+|    n_updates            | 80           |
+|    policy_gradient_loss | -0.00414     |
+|    std                  | 1.07         |
+|    value_loss           | 0.107        |
+------------------------------------------
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,499/500,000  [ 0:42:36 < 18:53:07 , 7 it/s ][WARN] [1774619597.412140567] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,499/500,000  [ 0:42:37 < 18:53:07 , 7 it/s ][INFO] [1774619598.935144729] [rl_gym_env_75790f4953c0]: Valid spawn found at (2.0, -8.0) after 2 attempts (min_range=1.67 m)
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,949/500,000  [ 0:43:29 < 14:04:55 , 9 it/s ][WARN] [1774619650.359745696] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,949/500,000  [ 0:43:30 < 14:04:55 , 9 it/s ][INFO] [1774619651.904725068] [rl_gym_env_75790f4953c0]: Valid spawn found at (-10.0, -6.0) after 2 attempts (min_range=1.55 m)
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,999/500,000  [ 0:43:35 < 13:52:10 , 10 it/s ][WARN] [1774619656.859053700] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18,999/500,000  [ 0:43:37 < 13:52:10 , 10 it/s ][INFO] [1774619658.444898358] [rl_gym_env_75790f4953c0]: Valid spawn found at (-4.0, -4.0) after 2 attempts (min_range=0.85 m)
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 19,049/500,000  [ 0:43:42 < 15:06:07 , 9 it/s ][WARN] [1774619663.071106973] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━╸━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 19,049/500,000  [ 0:43:43 < 15:06:07 , 9 it/s ][INFO] [1774619664.524536679] [rl_gym_env_75790f4953c0]: Valid spawn found at (-9.0, -11.0) after 2 attempts (min_range=0.59 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,049/500,000  [ 0:46:21 < 18:21:50 , 7 it/s ][WARN] [1774619822.219981407] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,049/500,000  [ 0:46:22 < 18:21:50 , 7 it/s ][INFO] [1774619823.682295989] [rl_gym_env_75790f4953c0]: Valid spawn found at (-3.0, 0.0) after 2 attempts (min_range=0.84 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,449/500,000  [ 0:47:15 < 16:39:42 , 8 it/s ][WARN] [1774619876.569244732] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,449/500,000  [ 0:47:17 < 16:39:42 , 8 it/s ][INFO] [1774619878.072006229] [rl_gym_env_75790f4953c0]: Valid spawn found at (0.0, -3.0) after 2 attempts (min_range=1.85 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 2.53        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 1.85        |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 10          |
+|    time_elapsed         | 2842        |
+|    total_timesteps      | 20480       |
+| train/                  |             |
+|    approx_kl            | 0.011065964 |
+|    clip_fraction        | 0.147       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.48       |
+|    explained_variance   | 0.205       |
+|    learning_rate        | 0.0003      |
+|    loss                 | 0.043       |
+|    n_updates            | 90          |
+|    policy_gradient_loss | -0.00775    |
+|    std                  | 1.08        |
+|    value_loss           | 0.0851      |
+-----------------------------------------
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,899/500,000  [ 0:48:22 < 17:44:05 , 8 it/s ][WARN] [1774619943.215999981] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 20,899/500,000  [ 0:48:23 < 17:44:05 , 8 it/s ][INFO] [1774619944.753972432] [rl_gym_env_75790f4953c0]: Valid spawn found at (0.0, -3.0) after 2 attempts (min_range=1.84 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 21,549/500,000  [ 0:49:58 < 19:06:07 , 7 it/s ][WARN] [1774620039.149768332] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 21,549/500,000  [ 0:49:59 < 19:06:07 , 7 it/s ][INFO] [1774620040.739607394] [rl_gym_env_75790f4953c0]: Valid spawn found at (-2.0, -6.0) after 2 attempts (min_range=0.85 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 21,749/500,000  [ 0:50:26 < 18:20:59 , 7 it/s ][WARN] [1774620067.123734955] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 21,749/500,000  [ 0:50:27 < 18:20:59 , 7 it/s ][INFO] [1774620068.602864770] [rl_gym_env_75790f4953c0]: Valid spawn found at (-9.0, -11.0) after 2 attempts (min_range=0.61 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,099/500,000  [ 0:51:14 < 16:05:20 , 8 it/s ][WARN] [1774620115.652796082] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,099/500,000  [ 0:51:16 < 16:05:20 , 8 it/s ][INFO] [1774620117.150585498] [rl_gym_env_75790f4953c0]: Valid spawn found at (-9.0, -11.0) after 2 attempts (min_range=0.59 m)
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,448/500,000  [ 0:52:02 < 18:11:32 , 7 it/s ][WARN] [1774620163.680019241] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   4% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,448/500,000  [ 0:52:04 < 18:11:32 , 7 it/s ][INFO] [1774620165.212765096] [rl_gym_env_75790f4953c0]: Valid spawn found at (0.0, -3.0) after 2 attempts (min_range=1.84 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 7.76        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 0.846       |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 11          |
+|    time_elapsed         | 3136        |
+|    total_timesteps      | 22528       |
+| train/                  |             |
+|    approx_kl            | 0.015128648 |
+|    clip_fraction        | 0.17        |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.48       |
+|    explained_variance   | 0.189       |
+|    learning_rate        | 0.0003      |
+|    loss                 | -0.0238     |
+|    n_updates            | 100         |
+|    policy_gradient_loss | -0.00564    |
+|    std                  | 1.08        |
+|    value_loss           | 0.0903      |
+-----------------------------------------
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,799/500,000  [ 0:53:06 < 18:43:26 , 7 it/s ][WARN] [1774620227.669514124] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,799/500,000  [ 0:53:08 < 18:43:26 , 7 it/s ][WARN] [1774620229.201029991] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 2/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 22,799/500,000  [ 0:53:09 < 18:43:26 , 7 it/s ][INFO] [1774620230.686165962] [rl_gym_env_75790f4953c0]: Valid spawn found at (-11.0, -9.0) after 3 attempts (min_range=1.35 m)
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,148/500,000  [ 0:54:00 < 18:16:57 , 7 it/s ][WARN] [1774620281.792777533] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,148/500,000  [ 0:54:02 < 18:16:57 , 7 it/s ][INFO] [1774620283.423989261] [rl_gym_env_75790f4953c0]: Valid spawn found at (-5.0, 5.0) after 2 attempts (min_range=0.84 m)
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,649/500,000  [ 0:55:10 < 17:36:39 , 8 it/s ][WARN] [1774620351.382580604] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,649/500,000  [ 0:55:11 < 17:36:39 , 8 it/s ][INFO] [1774620352.801618773] [rl_gym_env_75790f4953c0]: Valid spawn found at (-3.0, 0.0) after 2 attempts (min_range=0.84 m)
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,799/500,000  [ 0:55:32 < 17:46:03 , 7 it/s ][WARN] [1774620373.454219217] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 23,799/500,000  [ 0:55:34 < 17:46:03 , 7 it/s ][INFO] [1774620374.964887445] [rl_gym_env_75790f4953c0]: Valid spawn found at (-11.0, -11.0) after 2 attempts (min_range=1.22 m)
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 24,099/500,000  [ 0:56:12 < 16:27:03 , 8 it/s ][WARN] [1774620413.567594183] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 24,099/500,000  [ 0:56:14 < 16:27:03 , 8 it/s ][INFO] [1774620415.110548228] [rl_gym_env_75790f4953c0]: Valid spawn found at (-6.0, -10.0) after 2 attempts (min_range=0.79 m)
+-----------------------------------------
+| curriculum/             |             |
+|    stage                | 0           |
+| episode/                |             |
+|    collision            | 0           |
+|    goal_distance        | 6.67        |
+|    goal_reached         | 0           |
+| safety/                 |             |
+|    min_lidar_range      | 0.843       |
+| time/                   |             |
+|    fps                  | 7           |
+|    iterations           | 12          |
+|    time_elapsed         | 3440        |
+|    total_timesteps      | 24576       |
+| train/                  |             |
+|    approx_kl            | 0.010212963 |
+|    clip_fraction        | 0.158       |
+|    clip_range           | 0.2         |
+|    entropy_loss         | -4.49       |
+|    explained_variance   | 0.278       |
+|    learning_rate        | 0.0003      |
+|    loss                 | -1.66e-05   |
+|    n_updates            | 110         |
+|    policy_gradient_loss | -0.00543    |
+|    std                  | 1.09        |
+|    value_loss           | 0.0884      |
+-----------------------------------------
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 24,898/500,000  [ 0:58:12 < 17:24:57 , 8 it/s ][WARN] [1774620533.791133842] [rl_gym_env_75790f4953c0]: Spawn (-8.0, -8.0) rejected: min_range=0.08 m < 0.3 m (in wall). Attempt 1/10
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 24,898/500,000  [ 0:58:14 < 17:24:57 , 8 it/s ][INFO] [1774620535.234688436] [rl_gym_env_75790f4953c0]: Valid spawn found at (2.0, -8.0) after 2 attempts (min_range=1.66 m)
+Traceback (most recent call last):
+  File "/home/kartik/ros2-autonomous-explorer/src/rl_local_planner/scripts/train_ppo.py", line 382, in 
+<module>
+    main()
+  File "/home/kartik/ros2-autonomous-explorer/src/rl_local_planner/scripts/train_ppo.py", line 349, in 
+main
+    model.learn(
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/ppo/ppo.py", line 311, in 
+learn
+    return super().learn(
+  File 
+"/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/on_policy_algorithm.py", line
+324, in learn
+    continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, 
+n_rollout_steps=self.n_steps)
+  File 
+"/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/on_policy_algorithm.py", line
+224, in collect_rollouts
+    if not callback.on_step():
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+114, in on_step
+    return self._on_step()
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+223, in _on_step
+    continue_training = callback.on_step() and continue_training
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+114, in on_step
+    return self._on_step()
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+223, in _on_step
+    continue_training = callback.on_step() and continue_training
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+114, in on_step
+    return self._on_step()
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/callbacks.py", line 
+453, in _on_step
+    sync_envs_normalization(self.training_env, self.eval_env)
+  File "/home/kartik/.local/lib/python3.10/site-packages/stable_baselines3/common/vec_env/__init__.py", 
+line 66, in sync_envs_normalization
+    assert isinstance(eval_env_tmp, VecEnvWrapper), (
+AssertionError: Error while synchronizing normalization stats: expected the eval env to be a 
+VecEnvWrapper but got <stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv object at 
+0x757909107a90> instead. This is probably due to the training env not being wrapped the same way as the 
+evaluation env. Training env type: <stable_baselines3.common.vec_env.vec_normalize.VecNormalize object 
+at 0x75790f494be0>.
+   5% ━━╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 24,999/500,000  [ 0:58:29 < 18:28:21 , 7 it/s ]terminate called without an active exception
+Aborted (core dumped)
+kartik@kartik-Envy:~/ros2-autonomous-explorer$ 
+

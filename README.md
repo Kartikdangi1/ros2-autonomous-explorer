@@ -1,22 +1,20 @@
 # ROS2 Autonomous Explorer
 
-Autonomous exploration robot using Next-Best-View (NBV) planning, multi-sensor fusion, SLAM, and Nav2 navigation — simulated in Ignition Gazebo 6.
+Autonomous exploration robot using Next-Best-View (NBV) planning, multi-sensor fusion, SLAM, and Nav2 — simulated in Ignition Gazebo 6.
+
+<video src="media/demo.mp4" controls width="100%"></video>
+
+---
 
 ## Overview
 
 A 4WD Mecanum holonomic robot that explores an unknown maze environment autonomously. It fuses LiDAR, radar, and RGB-D depth into a single scan, builds a 2D occupancy map with SLAM Toolbox, and continuously computes the next best viewpoint to maximise frontier coverage.
 
-### System Data Flow
-
-![Data Flow](src/docs/data_flow.png)
-
 ### Simulation Environment
 
 ![Gazebo Simulation](src/docs/gazebo.png)
 
-### SLAM + RViz Visualization
-
-![RViz Visualization](src/docs/Rviz.png)
+---
 
 ## Project Structure
 
@@ -33,22 +31,36 @@ src/
 │   │   ├── mapping.launch.py
 │   │   └── navigation.launch.py
 │   ├── config/                 # YAML parameters for all subsystems
-│   └── urdf/                   # Robot model + Gazebo world
+│   └── urdf/                   # Robot model + Gazebo worlds
 └── sensor_fusion/              # Multi-sensor fusion node
+
+media/
+└── demo.mp4                    # Demo screencast
 ```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
+
 - ROS2 Humble
 - Ignition Gazebo 6 (Fortress)
 - `ros-humble-nav2-*`, `ros-humble-slam-toolbox`, `ros-humble-robot-localization`
 
+### Install Dependencies
+
+```bash
+cd ~/ros2-explorer
+
+rosdep install --from-paths src --ignore-src -r -y
+pip install -r requirements.txt
+```
+
 ### Build
 
 ```bash
-cd ~/ros2-autonomous-explorer
-colcon build --packages-select autonomous_explorer sensor_fusion --symlink-install
+colcon build --symlink-install
 source install/setup.bash
 ```
 
@@ -71,7 +83,9 @@ Subsystems start in sequence:
 | T+17s | Nav2 stack (waits for `/map`) |
 | T+22s | NBV goal provider (waits for Nav2 action server) |
 
-## NBV Planning Library
+---
+
+## NBV Planning
 
 Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps):
 
@@ -81,6 +95,8 @@ Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps
 | `OutlineExtractor` | Polar-sector frontier detection via jump edges |
 | `CandidateGenerator` | NBV candidate placement at frontiers + uniform fallback |
 | `NBVScorer` | Scores candidates by visibility (ray-casting), distance, and orientation |
+
+---
 
 ## Robot Model
 
@@ -92,6 +108,8 @@ Core algorithms in `autonomous_explorer/nbv_utils.py` (pure Python, no ROS2 deps
 | 9-DOF IMU | Accelerometer + gyroscope + magnetometer |
 | RGB-D Camera | 0.3–6 m depth range |
 | Forward Radar | 90° FOV, 50 m range |
+
+---
 
 ## Tech Stack
 

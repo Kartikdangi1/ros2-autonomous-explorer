@@ -1,0 +1,93 @@
+● Here's what's missing for a production-quality, reproducible project:                                 
+                                                                                                        
+  Reproducibility (high priority)                                                                       
+   
+  ┌──────────────┬──────────────────────────────────────────────────────────────────────────────────┐   
+  │     Gap      │                                  Why it matters                                  │ 
+  ├──────────────┼──────────────────────────────────────────────────────────────────────────────────┤ 
+  │              │ Pin ROS2 Humble + Gazebo Fortress + all deps in one image. Right now anyone      │ 
+  │ Dockerfile   │ cloning this has to manually install ROS2, Gazebo, pip deps, and rosdep —        │ 
+  │              │ fragile and version-dependent.                                                   │   
+  ├──────────────┼──────────────────────────────────────────────────────────────────────────────────┤ 
+  │ Pin pip      │ requirements.txt has no version pins. stable-baselines3==2.7.1 today may break   │   
+  │ versions     │ with 3.0. Add pip freeze output or use pip-compile.                              │   
+  ├──────────────┼──────────────────────────────────────────────────────────────────────────────────┤
+  │ Seed         │ Gazebo physics, NumPy, PyTorch, CUDA are not fully seeded. Training runs won't   │   
+  │ everything   │ reproduce bit-for-bit without torch.use_deterministic_algorithms(True) and       │   
+  │              │ CUBLAS_WORKSPACE_CONFIG.                                                         │
+  ├──────────────┼──────────────────────────────────────────────────────────────────────────────────┤   
+  │ Model        │ Trained models in models/ have no metadata. Add a model_card.yaml per            │ 
+  │ versioning   │ checkpoint: training config hash, git commit, eval metrics, curriculum stage     │   
+  │              │ reached.                                                                         │
+  ├──────────────┼──────────────────────────────────────────────────────────────────────────────────┤   
+  │ Git LFS for  │ ONNX models will be 10-50MB. Without LFS they bloat the repo.                    │   
+  │ models       │                                                                                  │
+  └──────────────┴──────────────────────────────────────────────────────────────────────────────────┘   
+                                                                                                      
+  Scalability (medium priority)
+
+  ┌──────────────────┬──────────────────────────────────────────────────────────────────────────────┐
+  │       Gap        │                                Why it matters                                │
+  ├──────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Multi-env        │ You're using DummyVecEnv with 1 env. Gazebo is the bottleneck, but you could │
+  │ training         │  run N headless Gazebo instances on different ports with SubprocVecEnv for   │
+  │                  │ ~linear speedup.                                                             │   
+  ├──────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Headless Gazebo  │ Training launches GUI by default. Add headless:=true arg using               │   
+  │                  │ --headless-rendering flag — crucial for cloud/CI training.                   │   
+  ├──────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Multi-world      │ Only maze_world.sdf exists. Generalization needs 3-5 diverse worlds. Add a   │   
+  │ support          │ worlds/ directory with a world-selection launch arg.                         │   
+  ├──────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Hyperparameter   │ No way to run sweeps. Add Weights & Biases or Optuna integration in          │   
+  │ sweep            │ train_ppo.py.                                                                │   
+  ├──────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ Distributed      │ For serious scale, support launching across multiple machines. A             │   
+  │ training         │ docker-compose.yaml with Gazebo server + training worker services.           │   
+  └──────────────────┴──────────────────────────────────────────────────────────────────────────────┘
+                                                                                                        
+  Engineering quality (medium priority)                                                               
+
+  ┌───────────────┬─────────────────────────────────────────────────────────────────────────────────┐   
+  │      Gap      │                                 Why it matters                                  │ 
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤   
+  │ Tests         │ Zero test files. Need unit tests for obs_builder, reward, curriculum, and an    │ 
+  │               │ integration smoke test that runs 10 env steps.                                  │ 
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤   
+  │ CI pipeline   │ No GitHub Actions. At minimum: build, lint, unit tests on every PR.             │
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤   
+  │ Pre-commit    │ No linting enforcement. Add flake8/ruff + black formatting.                     │ 
+  │ hooks         │                                                                                 │   
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤   
+  │ Logging       │ Training prints to stdout. Add structured logging with run IDs so you can trace │
+  │               │  issues across Gazebo + training script.                                        │   
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤ 
+  │ Config        │ training_config.yaml is loaded with no schema validation. A typo in             │   
+  │ validation    │ reward_progres silently falls back to default. Use pydantic or dataclass        │   
+  │               │ validation.                                                                     │
+  └───────────────┴─────────────────────────────────────────────────────────────────────────────────┘   
+                                                                                                      
+  Portfolio/demo (low priority but high impact)                                                         
+   
+  ┌───────────────┬─────────────────────────────────────────────────────────────────────────────────┐   
+  │      Gap      │                                 Why it matters                                  │ 
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤
+  │ Demo script   │ No one-command way to see the RL agent in action. Add scripts/demo.py that      │
+  │               │ loads a pretrained model and runs a single episode with RViz visualization.     │
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤   
+  │ Training      │ No committed TensorBoard screenshots or wandb links. Recruiters won't run your  │
+  │ curves        │ training.                                                                       │   
+  ├───────────────┼─────────────────────────────────────────────────────────────────────────────────┤ 
+  │ Comparison    │ No automated A/B script. Add scripts/benchmark.py that runs DWB vs RL for N     │   
+  │ metrics       │ episodes and outputs a table.                                                   │   
+  └───────────────┴─────────────────────────────────────────────────────────────────────────────────┘
+                                                                                                        
+  ---                                                                                                 
+  If I were to prioritize, I'd do these 4 first:
+                                                                                                        
+  1. Dockerfile — biggest reproducibility win
+  2. Unit tests + CI — catches regressions                                                              
+  3. Pin requirements — prevents dependency rot                                                         
+  4. Headless training + multi-env — 4-8x training speedup                                              
+                                                                                                        
+  Want me to implement any of these?             

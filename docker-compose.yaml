@@ -1,0 +1,108 @@
+version: "3.9"
+
+# ============================================================================
+# ROS2 Autonomous Explorer — Distributed training compose file
+#
+# Services:
+#   gazebo    — headless Gazebo server (can be scaled for multi-env)
+#   trainer   — PPO training script
+#
+# Usage (single env):
+#   docker compose up
+#
+# Usage (multi-env, N parallel Gazebo instances on different ports):
+#   docker compose up --scale gazebo=N
+#   # Then set --num-envs N in the trainer command
+# ============================================================================
+
+x-ros-env: &ros-env
+  ROS_DOMAIN_ID: "42"
+  RCUTILS_LOGGING_BUFFERED_STREAM: "1"
+  RCUTILS_COLORIZED_OUTPUT: "1"
+
+services:
+  # ── Headless Gazebo simulation server ────────────────────────────────────
+  gazebo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ros2-explorer:latest
+    environment:
+      <<: *ros-env
+      DISPLAY: ""
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        source /ros2_ws/install/setup.bash &&
+        ros2 launch rl_local_planner train.launch.py
+          headless:=true
+          use_rviz:=false
+      "
+    volumes:
+      # Mount world files so new worlds can be added without rebuilding
+      - ./src/autonomous_explorer/urdf/worlds:/ros2_ws/src/autonomous_explorer/urdf/worlds:ro
+    networks:
+      - ros_net
+    # Allow Gazebo physics simulation access to all CPUs
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+    restart: unless-stopped
+
+  # ── PPO training script ──────────────────────────────────────────────────
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ros2-explorer:latest
+    environment:
+      <<: *ros-env
+      CUBLAS_WORKSPACE_CONFIG: ":4096:8"
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        source /ros2_ws/install/setup.bash &&
+        echo 'Waiting 30s for Gazebo + Nav2 to initialise...' &&
+        sleep 30 &&
+        python3 src/rl_local_planner/scripts/train_ppo.py
+          --config src/rl_local_planner/config/training_config.yaml
+          --seed 42
+          --num-envs 1
+      "
+    volumes:
+      # Persist training artefacts on the host
+      - ./rl_checkpoints:/ros2_ws/rl_checkpoints
+      - ./rl_best_model:/ros2_ws/rl_best_model
+      - ./tb_logs:/ros2_ws/tb_logs
+      - ./src/rl_local_planner/config:/ros2_ws/src/rl_local_planner/config:ro
+    networks:
+      - ros_net
+    depends_on:
+      - gazebo
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: "no"
+
+  # ── TensorBoard dashboard (optional) ────────────────────────────────────
+  tensorboard:
+    image: tensorflow/tensorflow:2.15.0
+    command: tensorboard --logdir /logs --host 0.0.0.0 --port 6006
+    volumes:
+      - ./tb_logs:/logs:ro
+    ports:
+      - "6006:6006"
+    networks:
+      - ros_net
+    profiles:
+      - monitoring  # only starts with: docker compose --profile monitoring up
+
+networks:
+  ros_net:
+    driver: bridge

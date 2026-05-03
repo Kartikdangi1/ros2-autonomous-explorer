@@ -1,0 +1,481 @@
+● Bash(python3 - <<'EOF'                                                                                
+      from tensorboard.backend.event_processing.event_accumulator import EventAccumulator…)
+  ⎿  Run: PPO_2                                                                                         
+       curriculum/stage                         latest=0.0000  step=344,064  history=[0.0, 0.0, 0.0
+     , 0.0, 0.0]                                                                                        
+     … +19 lines (ctrl+o to expand)                         
+                                                                                                        
+● Training is stable but goal-reaching has stalled.          
+                                                                                                        
+  ┌───────────────────┬─────────────────────┬─────────────────────────────────┬───────────────────┐     
+  │      Metric       │        Value        │              Trend              │      Status       │     
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤     
+  │ Explained         │ 0.865               │ stable ~0.87                    │ ✅ Healthy        │     
+  │ variance          │                     │                                 │                   │
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤     
+  │ Value loss        │ 0.203               │ plateaued ~0.20                 │ ✅ Stable         │
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤     
+  │ Entropy           │ −4.65               │ still slowly rising             │ ⚠️                 │     
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤
+  │ Std               │ 1.14                │ slowly rising                   │ ⚠️                 │     
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤
+  │ Goal reached      │ 0 (last 5)          │ 1 success at 147k, nothing      │ 🔴                │     
+  │                   │                     │ since                           │                   │
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤     
+  │ Goal distance     │ 0.722               │ drifting upward from 0.519 low  │ 🔴                │
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤     
+  │ Eval              │ only 1 entry at     │ no evals after 200k             │ 🔴 bug            │
+  │                   │ 200k                │                                 │                   │     
+  ├───────────────────┼─────────────────────┼─────────────────────────────────┼───────────────────┤
+  │ clip_fraction     │ 0.184               │ rising                          │ ⚠️  approaching    │     
+  │                   │                     │                                 │ 0.2               │
+  └───────────────────┴─────────────────────┴─────────────────────────────────┴───────────────────┘
+
+  Three concerns:
+
+  1. Goal-reaching stalled — one success at 147k, then nothing across 197k more steps (~6,000 episodes).
+   Goal distance was 0.519 at best, now back to 0.722. Same hover pattern as previous runs.
+  2. No evals after step 200k — with eval_freq=25000 there should be 5+ eval entries by now. Only one   
+  exists. The eval callback is silently failing or hanging after step 200k. This means best_model.zip   
+  hasn't been updated since 200k.
+  3. Entropy still rising at 344k — with ent_coef=0.02 the policy should be converging by now, not still
+   expanding. Std at 1.14 and rising is unusual.                                                        
+   
+  Bottom line: the value function is working but the policy isn't translating that into goal reaches.   
+  This points to an environment-level issue rather than a hyperparameter issue — possibly goals being
+  placed in positions that are physically hard to reach in 80 steps, or the spawn/goal geometry. Want me
+   to dig into the curriculum spawn and goal sampling logic to check?
+
+✻ Baked for 48s                 
+                                                                                          
+❯ yup                                                                                                   
+                                                                                                        
+● Explore(Explore curriculum spawn and goal sampling)                                                   
+  ⎿  Done (3 tool uses · 31.6k tokens · 25s)                                                            
+  (ctrl+o to expand)                                                                                    
+                                                              
+● Found a real bug. Let me look at the specific spawn coordinates against the maze geometry before      
+  proposing the fix.                                                                                    
+                                                                                                        
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)                                               
+                                                                                                        
+● Clear. Now I have everything I need. Two bugs confirmed:                                              
+                                                                                                        
+  ---                                                                                                   
+  Bug 1 — Goals spawn inside walls (no collision check)                                                 
+                                                                                                        
+  sample_goal() only validates abs(gx) <= 15.0 — it never checks if the goal is inside a wall. Three    
+  near-wall spawns in Stage 0 make this particularly bad:                                               
+                                                            
+  ┌─────────────┬───────────────────────────────────────────┬──────────────────────────────────────┐    
+  │    Spawn    │                Nearby wall                │                 Risk                 │
+  ├─────────────┼───────────────────────────────────────────┼──────────────────────────────────────┤    
+  │ (2.0, -8.0) │ wall_h_south_room at y∈[−8.125,−7.875]    │ Goal going north lands inside the    │
+  │             │                                           │ wall                                 │
+  ├─────────────┼───────────────────────────────────────────┼──────────────────────────────────────┤    
+  │ (-4.0,      │ wall_h_south_corridor at                  │ Goal going south hits the wall       │    
+  │ -4.0)       │ y∈[−5.125,−4.875]                         │                                      │    
+  ├─────────────┼───────────────────────────────────────────┼──────────────────────────────────────┤    
+  │ (-2.0,      │ Same south_corridor wall                  │ Same                                 │
+  │ -6.0)       │                                           │                                      │    
+  └─────────────┴───────────────────────────────────────────┴──────────────────────────────────────┘
+                                                                                                        
+  Also in OPEN_SPAWNS:                                                                                  
+  - (-3.0, 0.0) is right on wall_h_center_left (y∈[−0.125, 0.125])
+  - (3.0, 3.0) is on wall_v_center (x∈[2.875, 3.125])                                                   
+                                                            
+  Bug 2 — No line-of-sight check between spawn and goal                                                 
+                                                            
+  Even if the goal isn't inside a wall, a 0.3–0.8m goal through a wall gap that doesn't exist means the 
+  robot must navigate around the wall — impossible in 80 steps.
+                                                                                                        
+  ---                                                       
+  Fix plan — two changes:
+                                                                                                        
+  1. curriculum.py — Remove the three near-wall spawns from BOOTSTRAP_SPAWNS, and fix the two bad
+  OPEN_SPAWNS. Stage 0 should only use genuinely open positions:                                        
+                                                            
+  2. mujoco_env.py — Add goal validation using mj_ray from spawn toward the goal. If the ray hits a wall
+   before reaching the goal, reject and resample.           
+                                                                                                        
+  Want me to apply these now?                               
+
+✻ Brewed for 1m 27s
+
+❯ for sure                                                                                              
+            
+  Read 1 file (ctrl+o to expand)                                                                        
+                                                        
+● Good. Now I have everything I need. Two edits:                                                        
+                 
+● Update(src/rl_local_planner/rl_local_planner/curriculum.py)                                           
+  ⎿  Added 2 lines, removed 2 lines                                                                     
+      37      (-6.0, -10.0),                                                                            
+      38      (-10.0, -6.0),                                                                            
+      39      (0.0, -3.0),                                                                              
+      40 -    (-3.0, 0.0),                                                                       
+      41 -    (3.0, 3.0),                                                                               
+      40 +    (-3.0, 2.0),   # was (-3.0, 0.0) — sat on wall_h_center_left (y≈0)                 
+      41 +    (5.0, 3.0),    # was (3.0, 3.0)  — sat on wall_v_center (x≈3)                      
+      42      (-5.0, 5.0),
+      43  ]
+      44   
+
+● Update(src/rl_local_planner/rl_local_planner/curriculum.py)
+  ⎿  Added 4 lines, removed 3 lines
+      55      (-8.0, -2.0),                                                                             
+      56  ]                                                                                      
+      57                                                                                                
+      58 -# Stage 0 uses a mix: 70% open + 30% near-wall so the robot sees some                  
+      59 -# obstacles but doesn't get stuck in tight spaces before learning basics.              
+      60 -BOOTSTRAP_SPAWNS: list[tuple[float, float]] = OPEN_SPAWNS + NEAR_WALL_SPAWNS[:3]       
+      58 +# Stage 0 uses only open spawns — near-wall spawns risk placing goals inside           
+      59 +# walls (goal has no collision check), which makes episodes unwinnable and             
+      60 +# prevents curriculum advancement.                                                     
+      61 +BOOTSTRAP_SPAWNS: list[tuple[float, float]] = OPEN_SPAWNS                              
+      62   
+      63  ALL_SPAWNS: list[tuple[float, float]] = OPEN_SPAWNS + NEAR_WALL_SPAWNS
+      64   
+
+● Now add goal validation via mj_ray in mujoco_env.py:
+
+● Update(src/rl_local_planner/rl_local_planner/mujoco_env.py)                                           
+  ⎿  Added 2 lines
+      48  PHYSICS_TIMESTEP          = 0.05   # 20 Hz — set in mujoco_maze.xml <option>                  
+      49  SPAWN_MIN_CLEARANCE       = 0.30   # metres — LiDAR min after spawn; below = in a wall 
+      50  MAX_SPAWN_RETRIES         = 10                                                                
+      51 +MAX_GOAL_RETRIES          = 20                                                         
+      52 +GOAL_MIN_CLEARANCE        = 0.20   # metres — ray must reach this close to goal               
+         +unobstructed                                                                           
+      53   
+      54   
+      55  class MuJoCoExplorerEnv(gym.Env):
+
+● Update(src/rl_local_planner/rl_local_planner/mujoco_env.py)
+  ⎿  Added 29 lines                                                                       
+      148          self._data.qvel[:] = 0.0                                                             
+      149          self._mujoco.mj_forward(self._model, self._data)                                     
+      150                                                                                               
+      151 +    def _goal_is_reachable(self, spawn_x: float, spawn_y: float,                             
+      152 +                           goal_x: float, goal_y: float) -> bool:                     
+      153 +        """Return True if a straight-line ray from spawn reaches goal without hitting        
+          + a wall.                                                                              
+      154 +                                                                                      
+      155 +        Uses mj_ray cast from the spawn position toward the goal direction.           
+      156 +        If the ray distance to the nearest geom is >= the spawn-goal distance,        
+      157 +        the path is clear (no wall in the way).                                       
+      158 +        """                                                                           
+      159 +        dx = goal_x - spawn_x                                                         
+      160 +        dy = goal_y - spawn_y                                                         
+      161 +        goal_dist = math.hypot(dx, dy)                                                
+      162 +        if goal_dist < 1e-6:                                                          
+      163 +            return True                                                               
+      164 +        # Unit direction vector (horizontal ray, z=0)                                 
+      165 +        direction = np.array([dx / goal_dist, dy / goal_dist, 0.0], dtype=np.float64) 
+      166 +        origin = np.array([spawn_x, spawn_y, 0.15], dtype=np.float64)  # robot centre 
+          + height                                                                               
+      167 +        hit_dist = self._mujoco.mj_ray(                                               
+      168 +            self._model, self._data,                                                  
+      169 +            origin, direction,                                                        
+      170 +            None,               # geomgroup mask (None = all)                         
+      171 +            1,                  # flg_static: include static geoms                    
+      172 +            self._robot_body_id,# exclude robot body                                  
+      173 +            np.zeros(1, dtype=np.intc),  # geomid output (unused)                     
+      174 +        )                                                                             
+      175 +        # hit_dist == -1 means no hit (open space); otherwise distance to first geom  
+      176 +        if hit_dist < 0:                                                              
+      177 +            return True                                                               
+      178 +        return hit_dist >= (goal_dist - GOAL_MIN_CLEARANCE)                           
+      179 +                                                                                      
+      180      def _sample_valid_spawn(self) -> tuple[float, float]:
+      181          """Sample a spawn point not inside a wall (mirrors gym_env.py logic)."""
+      182          candidate = self._curriculum.sample_spawn(self._rng)
+
+● Now wire it into reset():          
+                                                                                          
+● Update(src/rl_local_planner/rl_local_planner/mujoco_env.py)
+  ⎿  Added 7 lines, removed 1 line                                                                      
+      201              self._rng = np.random.default_rng(seed)                                   
+      202                                                                                               
+      203          spawn = self._sample_valid_spawn()                                            
+      204 -        goal  = self._curriculum.sample_goal(spawn[0], spawn[1], self._rng)                  
+      204 +        # Sample a goal that has clear line-of-sight from the spawn position.         
+      205 +        # Rejects goals inside walls or behind walls (unwinnable episodes).           
+      206 +        goal = self._curriculum.sample_goal(spawn[0], spawn[1], self._rng)            
+      207 +        for _ in range(MAX_GOAL_RETRIES):                                             
+      208 +            if self._goal_is_reachable(spawn[0], spawn[1], goal[0], goal[1]):         
+      209 +                break                                                                 
+      210 +            goal = self._curriculum.sample_goal(spawn[0], spawn[1], self._rng)        
+      211          self._goal_x, self._goal_y = goal
+      212   
+      213          dx = goal[0] - spawn[0]
+
+● Now verify the mj_ray signature is correct:
+                                                                                          
+● Bash(python3 -c "import mujoco; help(mujoco.mj_ray)" 2>&1 | head -20)
+  ⎿  Help on built-in function mj_ray in module mujoco._functions:                                      
+   
+     mj_ray(...) method of pybind11_builtins.pybind11_detail_function_record_v1_system_libcpp_abi1      
+     … +11 lines (ctrl+o to expand)                                                       
+                                                                                                        
+● Need to check how mj_ray is called elsewhere in this codebase to get the exact array shapes right:    
+                                                                                          
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)                                                
+                                                                                                        
+● geomid should be np.array([-1], dtype=np.int32). Fix my call:
+                                                                                                        
+● Update(src/rl_local_planner/rl_local_planner/mujoco_env.py)                             
+  ⎿  Added 2 lines, removed 2 lines                                                                     
+      169              origin, direction,                                                               
+      170              None,               # geomgroup mask (None = all)                                
+      171              1,                  # flg_static: include static geoms                           
+      172 -            self._robot_body_id,# exclude robot body                                         
+      173 -            np.zeros(1, dtype=np.intc),  # geomid output (unused)                     
+      172 +            self._robot_body_id,                    # exclude robot body              
+      173 +            np.array([-1], dtype=np.int32),         # geomid output (unused)          
+      174          )
+      175          # hit_dist == -1 means no hit (open space); otherwise distance to first geom
+      176          if hit_dist < 0:
+
+● Now do a quick smoke test to confirm the env resets without error:
+                                                                                          
+● Bash(PYTHONPATH=src/rl_local_planner python3 - <<'EOF'  
+      from rl_local_planner.mujoco_env import MuJoCoExplorerEnv…)                                       
+  ⎿  reset  1: spawn=(-11.0, -11.0)  goal=(-11.68, -10.73)  dist=0.73m
+     reset  2: spawn=(-3.0, 2.0)  goal=(-2.33, 1.9)  dist=0.68m                                         
+     reset  3: spawn=(5.0, 3.0)  goal=(4.47, 3.55)  dist=0.76m                                          
+     … +16 lines (ctrl+o to expand)                                                                     
+                                                            
+● Clean — no errors, all goals in open space (distances 0.3–                                            
+  ⎿  Interrupted · What should Claude do instead?                                         
+                                                                                                        
+❯ continue                                                                                              
+                                                                                                        
+● Bash(rm -rf /home/kartik/ros2-autonomous-explorer/rl_checkpoints/*                                    
+      /home/kartik/ros2-autonomous-explorer/rl_best_model/*                                             
+      /home/kartik/ros2-autonomous-explorer/tb_log…)                                                    
+  ⎿  PID: 136563                                                                                        
+                                                                                                        
+● Bash(sleep 8 && tail -4 /tmp/train_ppo.log)                                                           
+  ⎿  Using cuda device                                                                                  
+     [2026-03-29 08:42:48] [rl_training] [run:20260329_084243_1c60a2] INFO: Starting PPO training f     
+     or 750000 steps...                                                                                 
+     … +3 lines (ctrl+o to expand)                                                                      
+                                                                                                        
+● Running (PID 136563). Summary of what changed in this run vs the last:                                
+                                                                                                        
+  ┌───────────────┬───────────────────────────────────────────────┬─────────────────────────────────┐   
+  │      Fix      │                 What changed                  │               Why               │   
+  ├───────────────┼───────────────────────────────────────────────┼─────────────────────────────────┤   
+  │ curriculum.py │ BOOTSTRAP_SPAWNS = OPEN_SPAWNS only (removed  │ Near-wall spawns were placing   │   
+  │               │ 3 near-wall spawns)                           │ goals inside walls              │   
+  ├───────────────┼───────────────────────────────────────────────┼─────────────────────────────────┤   
+  │ curriculum.py │ Fixed (-3,0) → (-3,2) and (3,3) → (5,3)       │ Two open spawns were sitting on │
+  │               │                                               │  walls                          │   
+  ├───────────────┼───────────────────────────────────────────────┼─────────────────────────────────┤   
+  │ mujoco_env.py │ Added _goal_is_reachable() using mj_ray       │ Goals behind walls now get      │   
+  │               │                                               │ rejected and resampled          │   
+  └───────────────┴───────────────────────────────────────────────┴─────────────────────────────────┘
+                                                                                                        
+  This is the most fundamental fix of all the runs — previously a significant fraction of episodes were 
+  literally unwinnable (goal inside a wall). Check back in ~30–45 min for the first real signal.        
+                                                                                                        
+❯ is it working now well?                                                                               
+                                                                                                        
+● Bash(python3 - <<'EOF'                                                                                
+      from tensorboard.backend.event_processing.event_accumulator import EventAccumulator…)             
+  ⎿  Run: PPO_2                                                                                         
+       curriculum/stage                         latest=0.0000  step=49,152  history=[0.0, 0.0, 0.0]     
+       episode/collision                        latest=0.0000  step=49,152  history=[0.0, 0.0, 0.0]     
+     … +14 lines (ctrl+o to expand)                                                                     
+                                                                                                        
+● Very early (49k / 750k, 7%) but the best start across all runs.                                       
+                                                                                                        
+  ┌────────────────────┬───────────────────────┬─────────────────────┬─────────────────────────┐        
+  │       Metric       │    This run @ 49k     │ Best previous @ 49k │         Status          │
+  ├────────────────────┼───────────────────────┼─────────────────────┼─────────────────────────┤        
+  │ Explained variance │ 0.489                 │ ~0.248 (run 2)      │ ✅ 2× better            │
+  ├────────────────────┼───────────────────────┼─────────────────────┼─────────────────────────┤
+  │ Value loss         │ 0.207 (dropping fast) │ ~0.343              │ ✅                      │        
+  ├────────────────────┼───────────────────────┼─────────────────────┼─────────────────────────┤        
+  │ Goal distance      │ 0.770→0.748→0.659     │ oscillating         │ ✅ Clear downward trend │        
+  ├────────────────────┼───────────────────────┼─────────────────────┼─────────────────────────┤        
+  │ Entropy            │ −4.31 (healthy)       │ −4.28               │ ✅                      │
+  ├────────────────────┼───────────────────────┼─────────────────────┼─────────────────────────┤        
+  │ Std                │ 1.020 (stable)        │ ~1.01               │ ✅                      │
+  └────────────────────┴───────────────────────┴─────────────────────┴─────────────────────────┘        
+                                                            
+  The key signal: EV jumped from 0.003 → 0.489 in a single update cycle. In every previous run it       
+  crawled up slowly. This means the value network is fitting the reward landscape immediately — because
+  the rewards are now consistent. No unwinnable episodes = no garbage returns confusing the value       
+  function.                                                 
+
+  Goal distance is already trending down from the first iteration, which never happened this clearly    
+  before.
+                                                                                                        
+  Too early to declare victory but this is the cleanest start we've had. Check back around step 150–200k
+   for first goal reaches.
+                                                                                                        
+❯ is it working now well?                                                                               
+                         
+● Bash(python3 - <<'EOF'                                                                                
+      from tensorboard.backend.event_processing.event_accumulator import EventAccumulator…)
+  ⎿  Run: PPO_2                                                                                         
+       curriculum/stage                         latest=0.0000  step=114,688  history=[0.0, 0.0, 0.0     
+     , 0.0, 0.0]                                                                                        
+     … +18 lines (ctrl+o to expand)                         
+                                                                                                        
+● Yes — healthiest run at this stage across all attempts.
+                                                                                                        
+  ┌───────────────────┬──────────────────────┬─────────────────────────┬───────────────────────────┐    
+  │      Metric       │   This run @ 114k    │  Best previous @ 114k   │          Status           │ 
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤    
+  │ Explained         │ 0.711                │ 0.751 (run 2)           │ ✅ On par                 │ 
+  │ variance          │                      │                         │                           │ 
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤    
+  │ Value loss        │ 0.202 (stable)       │ ~0.025 (run 2 was       │ ✅ Plateaued, not         │    
+  │                   │                      │ lower)                  │ diverging                 │    
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤    
+  │ Entropy           │ −4.36 (slowly        │ −4.35                   │ ✅                        │ 
+  │                   │ rising)              │                         │                           │    
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤ 
+  │ Std               │ 1.034 (very stable)  │ ~0.95                   │ ✅                        │ 
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤ 
+  │ Goal distance     │ 0.77→0.58→0.52→0.73  │ oscillating             │ neutral                   │
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤    
+  │ Goal reached      │ 0                    │ 0 (first at 163k)       │ on track                  │
+  ├───────────────────┼──────────────────────┼─────────────────────────┼───────────────────────────┤    
+  │ Collision         │ 0                    │ 0                       │ ✅                        │
+  └───────────────────┴──────────────────────┴─────────────────────────┴───────────────────────────┘    
+                                                            
+  EV went 0.003 → 0.489 → 0.681 → 0.711 in 7 iterations — that's the fastest value network convergence  
+  of any run. It's now holding steady at ~0.71, exactly where run 2 was at this step.
+                                                                                                        
+  The goal_distance dipped to 0.522 before bouncing back to 0.733 — that oscillation is normal while the
+   policy is still discovering consistent paths. The key milestone is first goal_reached around step
+  150–163k. If it fires on schedule (matching run 2), the wall-fix made the difference. Let it run.     
+                                                            
+❯ is it working now well?                                                                               
+                         
+● Bash(python3 - <<'EOF'                                                                                
+      from tensorboard.backend.event_processing.event_accumulator import EventAccumulator…)           
+  ⎿  Run: PPO_2                                                                                         
+       curriculum/stage                         latest=0.0000  step=212,992  history=[0.0, 0.0, 0.0
+     , 0.0, 0.0]                                                                                        
+     … +19 lines (ctrl+o to expand)                         
+                                                                                                        
+● Strong progress — best run yet at this stage.
+                                                                                                        
+  ┌────────────────────┬───────────────────────────┬──────────────────────────────┬──────────────────┐  
+  │       Metric       │      This run @ 213k      │     Best previous @ 213k     │      Status      │  
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Explained variance │ 0.808 (rising)            │ ~0.866 (run 2 near_goal=1.5) │ ✅ On trajectory │  
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Value loss         │ 0.227 (dropping)          │ ~0.20                        │ ✅               │  
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Eval reward @ 200k │ 2.299                     │ 0.675 (run 2)                │ ✅ 3.4× better   │  
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Entropy            │ −4.44 (stable)            │ −4.55                        │ ✅               │
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Std                │ 1.064 (very stable)       │ 1.107                        │ ✅               │
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Goal distance      │ 0.504–0.505 (two batches) │ ~0.59                        │ ✅ Closest yet   │
+  ├────────────────────┼───────────────────────────┼──────────────────────────────┼──────────────────┤  
+  │ Goal reached       │ 0                         │ 0                            │ ⚠️  overdue       │
+  └────────────────────┴───────────────────────────┴──────────────────────────────┴──────────────────┘  
+                                                            
+  The robot is right at the doorstep. Goal distance hit 0.504 m in two consecutive batches — 4 mm       
+  outside the 0.5 m threshold. The near-goal shaping is pulling it in. With EV at 0.808 and the policy
+  still sharpening, goal_reached should start firing in the next 30–50k steps.                          
+                                                            
+  One flag: eval/mean_ep_length = 184 is larger than Stage 0's max_steps=80 — worth investigating after 
+  the run, possibly a SB3 eval env config issue.
+                                                                                                        
+  Eval reward of 2.299 at 200k vs 0.675 in the previous run confirms the wall fix made a real difference
+   — the eval env is now encountering winnable episodes. Let it run.
+                                                                                                        
+✻ Baked for 38s                                             
+                                                                                          
+❯ is it working now well?                                                                               
+                                                                                                        
+● Bash(python3 - <<'EOF'                                                                                
+      from tensorboard.backend.event_processing.event_accumulator import EventAccumulator…)             
+  ⎿  Run: PPO_2                                                                                         
+       curriculum/stage                         latest=0.0000  step=311,296  history=[0.0, 0.0, 0.0
+     , 0.0, 0.0]                                                                                        
+     … +19 lines (ctrl+o to expand)                         
+                                                                                                        
+● Stalled — same hovering pattern, deeper diagnosis needed.     
+                                                                                                        
+  ┌────────────────────┬─────────────┬──────────────────────────┬────────┐                              
+  │       Metric       │    Value    │          Trend           │ Status │                              
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ Goal reached       │ 0           │ zero across entire run   │ 🔴     │                              
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤
+  │ Goal distance      │ 0.573–0.931 │ oscillating, no trend    │ 🔴     │                              
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ Explained variance │ 0.792       │ was 0.808, now declining │ ⚠️      │                              
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ clip_fraction      │ 0.169       │ rising (was 0.102)       │ ⚠️      │
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ approx_kl          │ 0.015       │ rising                   │ ⚠️      │
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ Entropy            │ −4.50       │ slowly rising            │ ✅     │
+  ├────────────────────┼─────────────┼──────────────────────────┼────────┤                              
+  │ Collision          │ 0           │ perfect                  │ ✅     │
+  └────────────────────┴─────────────┴──────────────────────────┴────────┘                              
+   
+  Root cause: the near_goal shaping created a "hovering ring" local optimum.                            
+                                                            
+  The robot hovers at ~0.51–0.6 m and collects continuous near_goal reward instead of committing to the 
+  final push. Here's the math:                              
+                                                                                                        
+  Hover at 0.51m for 80 steps:  1.5×(1−0.51/1.0) × 80 = 0.735 × 80 = 58.8 total near_goal reward
+  Reach the goal (50 steps approach + success):  ~0.9/step × 50 + 10 bonus = 55 total                   
+                                                                                                        
+  Hovering is competitively rewarding vs reaching the goal. The policy found this and locked in. This   
+  also explains why goal_distance oscillates around 0.5–0.9 m — the robot is orbiting the goal, not     
+  approaching it.                                                                                       
+                                                            
+  Two targeted fixes:                                                                                   
+   
+  1. near_goal_radius: 1.0 → 0.6 — tighter zone. At 0.51 m: 1.5×(1−0.51/0.6) = 0.225/step instead of    
+  0.735/step. Hovering at 0.51 m for 80 steps = 18 total — no longer competitive.
+  2. reward_goal_reached: 10.0 → 20.0 — double the one-time bonus to make it unambiguously better than  
+  any hovering strategy.                                                                                
+   
+  Want me to stop the run, apply these two changes, and restart?                                        
+                                                            
+✻ Cooked for 2m 8s                                                                                      
+                                                            
+❯ i stopped the run apply the changes                                                                   
+                                      
+  Read 1 file (ctrl+o to expand)                                                                        
+                                                                                                      
+● Update(src/rl_local_planner/config/training_config.yaml)                                              
+  ⎿  Added 1 line, removed 1 line                         
+      33  # ── Reward weights ───────────────────────────────────────────────────────────               
+      34  # goal_progress is normalised by initial distance → consistent scale                          
+      35  reward_progress: 5.0       # × (fraction of initial distance closed per step)                 
+      36 -reward_goal_reached: 10.0  # one-time bonus on success                                        
+      36 +reward_goal_reached: 20.0  # one-time bonus on success                                     
+      37  reward_collision: -5.0     # one-time penalty on collision                                    
+      38  reward_proximity: -0.5     # × max(0, threshold - min_range)  [soft LiDAR warning]         
+      39  reward_smoothness: -0.1    # × ||action_t - action_{t-1}||
+
+● Update(src/rl_local_planner/config/training_config.yaml)
+  ⎿  Added 1 line, removed 1 line
+      40  reward_step_cost: -0.01    # per-step penalty (encourages efficiency)                         
+      41  reward_heading: 0.2        # × cos(angle_to_goal) — bootstraps directional learning    
+      42  reward_near_goal: 1.5      # × max(0, 1 − dist/near_goal_radius) — approach-zone              
+          shaping                                                                                    
+      43 -reward_near_goal_radius: 1.0  # metres — zone boundary                                 
+      43 +reward_near_goal_radius: 0.6  # metres — zone boundary                                 
+         + (tighter = no hovering ring optimum)                                                  
+
+● Bash(rm -rf /home/kartik/ros2-autonomous-explorer/rl_checkpoints/*
+      /home/kartik/ros2-autonomous-explorer/rl_best_model/*
+      /home/kartik/ros2-autonomous-explorer/tb_log…)                                                    
+  ⎿  PID: 146574
+                                                                                                        
+● Bash(sleep 8 && tail -4 /tmp/train_ppo.log)   

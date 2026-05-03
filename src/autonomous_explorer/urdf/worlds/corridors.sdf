@@ -1,0 +1,142 @@
+<?xml version="1.0" ?>
+<!--
+  corridors.sdf — Narrow corridor network for hard generalisation training.
+
+  Tests the robot's ability to navigate tight passages (≈1.2 m wide),
+  make sharp turns, and avoid walls at close range — harder than the maze
+  and useful for Stage 3 curriculum (domain generalisation).
+
+  Layout: a 3×3 grid of rooms connected by 1.2 m-wide doorways.
+  Arena: 18 × 18 m total.
+-->
+<sdf version="1.9">
+  <world name="corridors">
+
+    <physics name="default_physics" default="true" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+
+    <scene>
+      <ambient>0.3 0.3 0.3 1</ambient>
+      <background>0.2 0.2 0.2 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <light name="overhead" type="point">
+      <pose>0 0 5 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <attenuation><range>20</range><linear>0.1</linear></attenuation>
+    </light>
+
+    <!-- Ground -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+          <surface><friction><ode><mu>0.8</mu><mu2>0.8</mu2></ode></friction></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+          <material><ambient>0.4 0.4 0.45 1</ambient><diffuse>0.4 0.4 0.45 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ── Outer perimeter walls ─────────────────────────────────────── -->
+    <!-- Each wall is 0.2 m thick, 1.2 m tall -->
+    <model name="outer_n"><static>true</static><pose>0 9 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>18.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>18.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="outer_s"><static>true</static><pose>0 -9 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>18.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>18.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="outer_e"><static>true</static><pose>9 0 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 18.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 18.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="outer_w"><static>true</static><pose>-9 0 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 18.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 18.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+
+    <!-- ── Interior horizontal walls (Y direction) with doorways ─────── -->
+    <!-- Row divider at y=3: two segments leaving 1.2 m gap at x=-2.4 and x=2.4 -->
+    <model name="hwall_n_w1"><static>true</static><pose>-5.7 3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>5.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>5.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_n_w2"><static>true</static><pose>-1.2 3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>2.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>2.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_n_e1"><static>true</static><pose>2.4 3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>2.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>2.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_n_e2"><static>true</static><pose>6.3 3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>4.2 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>4.2 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+
+    <!-- Row divider at y=-3 (mirror) -->
+    <model name="hwall_s_w1"><static>true</static><pose>-5.7 -3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>5.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>5.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_s_w2"><static>true</static><pose>-1.2 -3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>2.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>2.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_s_e1"><static>true</static><pose>2.4 -3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>2.4 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>2.4 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="hwall_s_e2"><static>true</static><pose>6.3 -3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>4.2 0.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>4.2 0.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+
+    <!-- ── Interior vertical walls (X direction) with doorways ──────── -->
+    <!-- Column divider at x=3 -->
+    <model name="vwall_e_n1"><static>true</static><pose>3 6.3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 4.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 4.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_e_n2"><static>true</static><pose>3 2.4 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 2.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 2.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_e_s1"><static>true</static><pose>3 -1.2 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 2.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 2.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_e_s2"><static>true</static><pose>3 -5.7 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 5.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 5.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+
+    <!-- Column divider at x=-3 (mirror) -->
+    <model name="vwall_w_n1"><static>true</static><pose>-3 6.3 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 4.2 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 4.2 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_w_n2"><static>true</static><pose>-3 2.4 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 2.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 2.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_w_s1"><static>true</static><pose>-3 -1.2 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 2.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 2.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+    <model name="vwall_w_s2"><static>true</static><pose>-3 -5.7 0.6 0 0 0</pose>
+      <link name="link"><collision name="col"><geometry><box><size>0.2 5.4 1.2</size></box></geometry></collision>
+      <visual name="vis"><geometry><box><size>0.2 5.4 1.2</size></box></geometry>
+        <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material></visual></link></model>
+
+  </world>
+</sdf>
