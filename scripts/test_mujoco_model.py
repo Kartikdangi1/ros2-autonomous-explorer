@@ -4,7 +4,9 @@ Test a trained PPO model on the MuJoCo environment.
 
 Usage:
     python3 scripts/test_mujoco_model.py
-    python3 scripts/test_mujoco_model.py --model ./rl_checkpoints/ppo_final.zip --stage 2 --episodes 5
+    python3 scripts/test_mujoco_model.py --model ./rl_checkpoints/ppo_final \
+        --vec-normalize ./rl_checkpoints/vec_normalize.pkl --stage 3 --episodes 20
+    python3 scripts/test_mujoco_model.py --render --delay 0.05
 """
 
 import sys
@@ -12,12 +14,15 @@ import time
 import argparse
 from pathlib import Path
 
+import numpy as np
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from rl_local_planner.mujoco_env import MuJoCoExplorerEnv
 from rl_local_planner.curriculum import CurriculumManager
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecTransposeImage
 
 
 def main():
@@ -25,125 +30,172 @@ def main():
     parser.add_argument(
         '--model',
         type=str,
-        default='./rl_checkpoints/ppo_final.zip',
-        help='Path to trained model'
+        default='./rl_checkpoints/ppo_final',
+        help='Path to trained model (without .zip)',
+    )
+    parser.add_argument(
+        '--vec-normalize',
+        type=str,
+        default='./rl_checkpoints/vec_normalize.pkl',
+        help='Path to VecNormalize stats pickle (set to "" to skip)',
     )
     parser.add_argument(
         '--stage',
         type=int,
-        default=2,
+        default=3,
         choices=[0, 1, 2, 3],
-        help='Curriculum stage (0=bootstrap, 1=easy, 2=medium, 3=hard)'
+        help='Curriculum stage (0=bootstrap, 1=easy, 2=medium, 3=hard)',
     )
     parser.add_argument(
         '--episodes',
         type=int,
-        default=5,
-        help='Number of test episodes'
-    )
-    parser.add_argument(
-        '--deterministic',
-        action='store_true',
-        default=True,
-        help='Use deterministic policy (no randomness)'
+        default=20,
+        help='Number of test episodes',
     )
     parser.add_argument(
         '--max-steps',
         type=int,
         default=None,
-        help='Override episode step limit (default: curriculum default of 200)'
+        help='Override episode step limit (default: curriculum stage default)',
     )
     parser.add_argument(
         '--render',
         action='store_true',
-        help='Open MuJoCo viewer window to watch the simulation'
+        help='Open MuJoCo viewer window to watch the simulation',
     )
     parser.add_argument(
         '--delay',
         type=float,
         default=0.05,
-        help='Seconds to sleep between steps when rendering (default: 0.05 = real-time)'
+        help='Seconds to sleep between steps when rendering (default: 0.05 = real-time)',
     )
+    parser.add_argument('--seed', type=int, default=123)
     args = parser.parse_args()
 
-    # Load model
-    print(f"\nLoading model from {args.model}...")
-    try:
-        model = PPO.load(args.model)
-    except Exception as e:
-        print(f"ERROR: Failed to load model: {e}")
-        sys.exit(1)
+    stage_names = {0: 'bootstrap (0.3-0.8m)', 1: 'easy (0.8-2m)', 2: 'medium (2-4m)', 3: 'hard (3-6m)'}
+    stage_name = stage_names[args.stage]
 
-    # Create curriculum manager
+    # ── Build curriculum ──────────────────────────────────────────────────────
     curriculum = CurriculumManager()
     curriculum.current_stage = args.stage
-
-    stage_names = {0: 'bootstrap (0.3-0.8m)', 1: 'easy (0.8-2m)', 2: 'medium (2-4m)', 3: 'hard (3-6m)'}
-    stage_name = stage_names.get(args.stage, 'unknown')
-
     if args.max_steps is not None:
         curriculum.config.max_steps = args.max_steps
 
     render_mode = 'human' if args.render else None
 
-    # Create environment
-    print(f"Creating MuJoCo environment (Stage {args.stage}: {stage_name}, max_steps={curriculum.config.max_steps})...")
-    env = MuJoCoExplorerEnv(
-        'src/autonomous_explorer/urdf/worlds/mujoco_maze.xml',
-        curriculum=curriculum,
-        render_mode=render_mode,
-    )
+    # ── Build env — must mirror training wrapper stack exactly ────────────────
+    # Training used: DummyVecEnv → VecTransposeImage → VecNormalize(norm_obs=False)
+    # VecTransposeImage converts costmap (H,W,C)→(C,H,W) so the CNN sees channels-first.
+    # Skipping it causes a shape mismatch in RobotFeatureExtractor.
+    print(f"Creating MuJoCo environment (Stage {args.stage}: {stage_name}, "
+          f"max_steps={curriculum.config.max_steps})...")
 
-    # Run episodes
-    print("\n" + "="*75)
+    def _make():
+        return MuJoCoExplorerEnv(
+            'src/autonomous_explorer/urdf/worlds/mujoco_maze.xml',
+            curriculum=curriculum,
+            render_mode=render_mode,
+            seed=args.seed,
+        )
+
+    vec_env = DummyVecEnv([_make])
+    vec_env = VecTransposeImage(vec_env)
+
+    if args.vec_normalize and Path(args.vec_normalize).is_file():
+        print(f"Loading VecNormalize stats from {args.vec_normalize}")
+        vec_env = VecNormalize.load(args.vec_normalize, vec_env)
+        vec_env.training = False
+        vec_env.norm_reward = False
+    else:
+        print("No VecNormalize stats — evaluating without reward normalisation")
+
+    # ── Load model ────────────────────────────────────────────────────────────
+    model_path = args.model.rstrip('.zip')
+    print(f"\nLoading model from {model_path}.zip...")
+    try:
+        model = PPO.load(model_path, env=vec_env)
+    except Exception as e:
+        print(f"ERROR: Failed to load model: {e}")
+        sys.exit(1)
+
+    # ── Run episodes ──────────────────────────────────────────────────────────
+    print("\n" + "=" * 75)
     print(f"Testing PPO Model — Stage {args.stage} ({stage_name})")
-    print("="*75 + "\n")
+    print("=" * 75 + "\n")
 
-    successes = 0
-    total_rewards = []
-    final_distances = []
+    n_goal = n_collision = n_stuck = n_timeout = 0
+    ep_rewards: list[float] = []
+    ep_steps:   list[int]   = []
+    ep_dists:   list[float] = []
 
-    for ep in range(args.episodes):
-        obs, info = env.reset()
-        done = False
-        steps = 0
-        total_reward = 0.0
+    obs = vec_env.reset()
+    ep_reward = 0.0
+    ep_step   = 0
+    ep_done   = 0
 
-        while not done:
-            action, _ = model.predict(obs, deterministic=args.deterministic)
-            obs, r, term, trunc, info = env.step(action)
-            if args.render:
-                env.render()
-                time.sleep(args.delay)
-            done = term or trunc
-            steps += 1
-            total_reward += r
+    while ep_done < args.episodes:
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, info = vec_env.step(action)
 
-        goal_reached = info.get('goal_reached', False)
-        final_distance = info.get('goal_distance', 0.0)
-        min_lidar = info.get('min_range', 0.0)
+        if args.render:
+            vec_env.env_method('render')
+            time.sleep(args.delay)
 
-        if goal_reached:
-            successes += 1
-            result = "✓ SUCCESS"
-        else:
-            result = "✗ FAIL  "
+        ep_reward += float(reward[0])
+        ep_step   += 1
 
-        total_rewards.append(total_reward)
-        final_distances.append(final_distance)
+        if done[0]:
+            ep_done += 1
+            i = info[0]
+            goal_reached   = i.get('goal_reached', False)
+            collision      = i.get('collision', False)
+            stuck          = i.get('stuck', False)
+            timeout        = i.get('timeout', False)
+            final_distance = i.get('goal_distance', float('nan'))
+            min_lidar      = i.get('min_range', float('nan'))
 
-        print(f"Episode {ep+1:2d}: {result} | Steps: {steps:3d} | Reward: {total_reward:7.2f} | "
-              f"Distance: {final_distance:5.2f}m | Min LiDAR: {min_lidar:5.2f}m")
+            n_goal      += int(goal_reached)
+            n_collision += int(collision)
+            n_stuck     += int(stuck)
+            n_timeout   += int(timeout)
 
-    # Summary
-    print("\n" + "="*75)
-    print(f"Summary: {successes}/{args.episodes} successes ({100*successes/args.episodes:.0f}%)")
-    print(f"  Avg reward:       {sum(total_rewards)/len(total_rewards):7.2f}")
-    print(f"  Avg final dist:   {sum(final_distances)/len(final_distances):7.2f}m")
-    print(f"  Min final dist:   {min(final_distances):7.2f}m")
-    print("="*75 + "\n")
+            ep_rewards.append(ep_reward)
+            ep_steps.append(ep_step)
+            ep_dists.append(final_distance)
 
-    env.close()
+            outcome = (
+                'SUCCESS  ' if goal_reached else
+                'COLLISION' if collision     else
+                'STUCK    ' if stuck         else
+                'TIMEOUT  '
+            )
+            print(f"Episode {ep_done:3d}/{args.episodes}: {outcome} | "
+                  f"Steps: {ep_step:4d} | Reward: {ep_reward:8.2f} | "
+                  f"Dist: {final_distance:5.2f}m | MinLiDAR: {min_lidar:5.2f}m")
+
+            ep_reward = 0.0
+            ep_step   = 0
+            obs = vec_env.reset()
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    n = args.episodes
+    print("\n" + "=" * 75)
+    print(f"Summary  ({n} episodes, stage {args.stage}: {stage_name})")
+    print("=" * 75)
+    print(f"  Goal reached : {n_goal:3d}/{n}  ({100*n_goal/n:.1f}%)")
+    print(f"  Collision    : {n_collision:3d}/{n}  ({100*n_collision/n:.1f}%)")
+    print(f"  Stuck        : {n_stuck:3d}/{n}  ({100*n_stuck/n:.1f}%)")
+    print(f"  Timeout      : {n_timeout:3d}/{n}  ({100*n_timeout/n:.1f}%)")
+    print(f"  Mean reward  : {np.mean(ep_rewards):.2f} ± {np.std(ep_rewards):.2f}")
+    print(f"  Mean steps   : {np.mean(ep_steps):.1f}")
+    print(f"  Mean final dist : {np.nanmean(ep_dists):.2f}m")
+    print("=" * 75 + "\n")
+
+    # Close the viewer before tearing down the MuJoCo model to avoid
+    # a GLFW/MuJoCo double-free crash on exit when --render is used.
+    if args.render:
+        vec_env.env_method('close')
+    vec_env.close()
 
 
 if __name__ == '__main__':

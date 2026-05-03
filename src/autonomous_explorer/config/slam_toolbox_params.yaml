@@ -36,8 +36,12 @@ slam_toolbox:
     # Switch to "localization" + provide a map_file_name for a known environment
     mode: mapping
 
-    # Map update rate — match map_publish_rate from nbv_splam_params.yaml
-    map_update_interval: 0.15
+    # Map update rate — publish /map less often to reduce resize cascade
+    # cost (planner + NBV mapper + RViz all resize on each publish).
+    # Each publish triggers StaticLayer memory reallocation in Nav2 which stalls
+    # the controller thread for 200-500ms. At 5s interval the controller misses
+    # its 10Hz rate 3× per movement_time_allowance window → "Failed to make progress".
+    map_update_interval: 15.0   # was 5.0 — 3× fewer resizes; planner uses allow_unknown to route through unmapped space
     resolution: 0.05
 
     # Maximum range to include in the map (match max_range)
@@ -49,20 +53,27 @@ slam_toolbox:
     # minimum_time_interval caps scan intake to ≤ 1/s to prevent graph bloat.
     minimum_travel_distance: 0.0
     minimum_travel_heading: 0.0
-    # 10 scans/second — fine-grained ego-motion tracking.
-    minimum_time_interval: 0.1
-    scan_buffer_size: 5             # 5 scans = 0.25s warmup at 20Hz (10 was too slow)
-    scan_buffer_maximum_scan_distance: 15.0  # was 10.0
-    link_match_minimum_response_fine: 0.35   # was 0.45 — more permissive for sparse/early scans
+    # Throttle scan intake — process every 4th scan (~5 Hz from 20 Hz LiDAR).
+    # Previous 10 Hz was overloading SLAM Toolbox, causing map→odom TF to go
+    # stale by 1.8+ s and Nav2 controller to lose its transform entirely.
+    # NOTE: only define throttle_scans once — a second definition later in the file
+    # would silently override this value.
+    throttle_scans: 4
+    minimum_time_interval: 0.4     # hard cap: max 2.5 Hz regardless of throttle_scans
+    ceres_num_threads: 4           # cap Ceres CPU usage; leaves headroom for controller
+    scan_buffer_size: 10            # larger buffer absorbs bursts without dropping
+    scan_buffer_maximum_scan_distance: 15.0
+    link_match_minimum_response_fine: 0.45   # stricter match — avoids placing scans at wrong pose
     link_scan_maximum_distance: 1.5
 
-    # Loop closure — replaces the static map→odom offset with a full SLAM correction
+    # Loop closure — reduced search space to prevent multi-second CPU spikes
+    # that stall the scan processor and cause TF staleness.
     do_loop_closing: true
-    loop_search_maximum_distance: 4.0
+    loop_search_maximum_distance: 2.0        # was 4.0
     loop_match_minimum_response_fine: 0.5
     loop_match_minimum_response_coarse: 0.35
     loop_match_maximum_variance_coarse: 3.0
-    loop_search_space_dimension: 8.0
+    loop_search_space_dimension: 4.0         # was 8.0 — halved to cut loop closure cost
     loop_search_space_resolution: 0.1
     loop_search_space_smear_deviation: 0.05
 
@@ -84,6 +95,5 @@ slam_toolbox:
     # Visualization
     map_start_at_dock: false         # was true — false avoids TF dependency at cold start
     debug_logging: false
-    throttle_scans: 1
     transform_publish_period: 0.02   # 50 Hz TF updates
     transform_timeout: 1.0           # was 0.5 — more time for EKF TF on slow Gazebo startup

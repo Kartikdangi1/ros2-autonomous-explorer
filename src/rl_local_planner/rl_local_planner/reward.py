@@ -25,15 +25,16 @@ class RewardWeights:
     progress: float = 5.0         # × (fraction of initial distance closed)
     goal_reached: float = 25.0    # one-time bonus on success
     collision: float = -5.0       # one-time penalty on collision
-    proximity: float = -0.5       # × max(0, threshold - min_range)
+    proximity: float = -1.5       # × max(0, threshold - min_range)
     smoothness: float = -0.1      # × ||action_t - action_{t-1}||
     step_cost: float = -0.03      # per-step penalty
     heading: float = 0.2          # × cos(angle_to_goal) — stronger directional bootstrap
     near_goal: float = 5.0        # × approach progress when inside near_goal_radius
     near_goal_radius: float = 0.8 # metres — approach-zone amplifier radius
 
-    proximity_threshold: float = 0.4  # metres — soft warning zone
-    goal_tolerance: float = 0.6       # metres — goal reached threshold
+    proximity_threshold: float = 0.5  # metres — fires before 0.45m wall in 0.9m corridor
+    # NOTE: must match goal_tolerance in rl_params.yaml and nav2_params.yaml xy_goal_tolerance
+    goal_tolerance: float = 0.5       # metres — goal reached threshold
 
 
 @dataclass

@@ -1,6 +1,7 @@
 # Core dependencies (autonomous_explorer + sensor_fusion)
 numpy==2.2.6
 scipy==1.15.3
+scikit-image>=0.21.0
 pyyaml==5.4.1
 
 # RL Local Planner (src/rl_local_planner)

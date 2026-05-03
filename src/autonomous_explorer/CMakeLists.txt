@@ -11,6 +11,7 @@ ament_python_install_package(${PROJECT_NAME})
 install(PROGRAMS
   scripts/obstacle_cluster_node.py
   scripts/nbv_goal_provider_node.py
+  scripts/path_speed_limiter_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

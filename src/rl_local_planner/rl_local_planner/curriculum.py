@@ -17,6 +17,8 @@ Progresses through 4 stages based on evaluation success rate:
 from __future__ import annotations
 
 import logging
+import math
+import time
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -62,6 +64,17 @@ BOOTSTRAP_SPAWNS: list[tuple[float, float]] = OPEN_SPAWNS
 
 ALL_SPAWNS: list[tuple[float, float]] = OPEN_SPAWNS + NEAR_WALL_SPAWNS
 
+# Narrow corridor spawns — robot placed inside or just outside the 0.9 m-wide
+# corridor at x≈0, y=-4 to -8 (added to mujoco_maze.xml). Only used in
+# Stage 2+ when the policy already navigates open space reliably.
+NARROW_CORRIDOR_SPAWNS: list[tuple[float, float]] = [
+    (0.0, -5.0),   # inside corridor, north half
+    (0.0, -6.0),   # inside corridor, center
+    (0.0, -7.0),   # inside corridor, south half
+    (0.0, -3.5),   # just outside north entrance — forces corridor entry
+    (0.0, -8.5),   # just outside south entrance — forces corridor entry
+]
+
 # Maze half-extent in metres — goals sampled outside this are rejected
 MAZE_BOUNDS = 15.0
 
@@ -105,20 +118,20 @@ STAGES: list[StageConfig] = [
         scan_noise_sigma_max=0.01,
         odom_noise_sigma_max=0.02,
     ),
-    # Stage 2: medium — longer goals, all spawns, full episodes
+    # Stage 2: medium — longer goals, all spawns + narrow corridor, full episodes
     StageConfig(
         goal_dist_min=2.0,
         goal_dist_max=4.0,
-        spawn_points=ALL_SPAWNS,
-        max_steps=300,
+        spawn_points=ALL_SPAWNS + NARROW_CORRIDOR_SPAWNS,
+        max_steps=350,
         scan_noise_sigma_max=0.02,
         odom_noise_sigma_max=0.05,
     ),
-    # Stage 3: hard — full distance range + dynamics randomization
+    # Stage 3: hard — full distance range + dynamics randomization + narrow corridor
     StageConfig(
         goal_dist_min=3.0,
         goal_dist_max=6.0,
-        spawn_points=ALL_SPAWNS,
+        spawn_points=ALL_SPAWNS + NARROW_CORRIDOR_SPAWNS,
         max_steps=400,
         use_dynamics_randomization=True,
         friction_range=(0.7, 1.3),
@@ -142,6 +155,11 @@ class CurriculumManager:
     _successes: deque = field(default_factory=lambda: deque(maxlen=50))
     _total_episodes: int = 0
     _total_advances: int = 0
+    # Goal blacklist: positions that caused early collisions, temporarily avoided.
+    # Mirrors JadNizam's frontier blacklist (up to 20 entries, TTL-based expiry).
+    _goal_blacklist: list = field(default_factory=list)   # [(x, y, expiry_monotonic)]
+    _blacklist_radius: float = 0.5    # metres — reject resamples within this distance
+    _blacklist_ttl: float = 300.0     # seconds — entries auto-expire after 5 min
 
     @property
     def config(self) -> StageConfig:
@@ -175,6 +193,7 @@ class CurriculumManager:
             self._total_advances += 1
             rate = self.success_rate
             self._successes.clear()
+            self._goal_blacklist.clear()
             logger.info(
                 'Curriculum: stage %d → %d (success_rate=%.2f >= %.2f, '
                 'episodes=%d)',
@@ -188,6 +207,20 @@ class CurriculumManager:
         idx = int(rng.integers(len(self.config.spawn_points)))
         return self.config.spawn_points[idx]
 
+    def blacklist_goal(self, x: float, y: float) -> None:
+        """Add (x, y) to the goal blacklist for _blacklist_ttl seconds.
+
+        Called by the env when a goal causes an early collision (step < 20),
+        indicating the position is likely behind a wall or in a tight corner
+        that passes line-of-sight but is not practically navigable.
+        Mirrors JadNizam's frontier blacklist (capped at 20 entries).
+        """
+        self._goal_blacklist.append((x, y, time.monotonic() + self._blacklist_ttl))
+        if len(self._goal_blacklist) > 20:
+            self._goal_blacklist.pop(0)
+        logger.debug('Goal blacklisted at (%.2f, %.2f). Blacklist size: %d',
+                     x, y, len(self._goal_blacklist))
+
     def sample_goal(
         self,
         spawn_x: float,
@@ -197,20 +230,28 @@ class CurriculumManager:
     ) -> tuple[float, float]:
         """Sample a random goal within the stage's distance range.
 
-        Rejects goals outside MAZE_BOUNDS and retries up to max_attempts times.
-        Falls back to a +X offset from spawn if all attempts go out of bounds.
+        Rejects goals outside MAZE_BOUNDS or within _blacklist_radius of any
+        active blacklist entry.  Retries up to max_attempts times; falls back
+        to a +X offset from spawn if all attempts fail.
         """
         cfg = self.config
+        now = time.monotonic()
+        self._goal_blacklist = [(bx, by, t) for bx, by, t in self._goal_blacklist if t > now]
+
         for _ in range(max_attempts):
             angle = float(rng.uniform(0.0, 2 * np.pi))
             dist = float(rng.uniform(cfg.goal_dist_min, cfg.goal_dist_max))
             gx = spawn_x + dist * np.cos(angle)
             gy = spawn_y + dist * np.sin(angle)
-            if abs(gx) <= MAZE_BOUNDS and abs(gy) <= MAZE_BOUNDS:
-                return (gx, gy)
+            if abs(gx) > MAZE_BOUNDS or abs(gy) > MAZE_BOUNDS:
+                continue
+            if any(math.hypot(gx - bx, gy - by) < self._blacklist_radius
+                   for bx, by, _ in self._goal_blacklist):
+                continue
+            return (gx, gy)
         logger.warning(
-            'sample_goal: all %d attempts placed goal outside maze bounds '
-            'from spawn (%.1f, %.1f). Using fallback.',
+            'sample_goal: all %d attempts placed goal outside maze bounds or '
+            'near a blacklisted position from spawn (%.1f, %.1f). Using fallback.',
             max_attempts, spawn_x, spawn_y,
         )
         return (spawn_x + cfg.goal_dist_min, spawn_y)
@@ -236,4 +277,5 @@ class CurriculumManager:
             'curriculum_stage': self.current_stage,
             'curriculum_success_rate': self.success_rate,
             'curriculum_total_episodes': self._total_episodes,
+            'curriculum_blacklist_size': len(self._goal_blacklist),
         }

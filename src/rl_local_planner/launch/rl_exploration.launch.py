@@ -58,8 +58,8 @@ MAPPING_LAUNCH      = os.path.join(EXPLORER_PKG, 'launch', 'mapping.launch.py')
 NAV2_EXPLORATION_LAUNCH = os.path.join(EXPLORER_PKG, 'launch', 'nav2_exploration.launch.py')
 
 # ── Spawn position ────────────────────────────────────────────────────────────
-SPAWN_X = -11.0
-SPAWN_Y = -11.0
+SPAWN_X = -3.0
+SPAWN_Y = -8.0
 SPAWN_Z = 0.15
 
 
@@ -285,7 +285,7 @@ def launch_setup(context, *args, **kwargs):
                 'max_range': 19.0,
                 'candidate_offset': 1.0,
                 'sample_spacing': 1.0,
-                'exploration_radius': 15.0,
+                'exploration_radius': 10.0,
                 'weight_visibility': 3.0,
                 'weight_distance': 1.0,
                 'weight_orientation': 0.5,

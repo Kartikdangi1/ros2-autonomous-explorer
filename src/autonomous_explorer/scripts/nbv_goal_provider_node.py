@@ -28,6 +28,7 @@ Modular design:
 import math
 import threading
 import time
+import traceback
 from typing import Optional
 
 import numpy as np
@@ -73,7 +74,7 @@ CANDIDATE_MIN_DIST = 1.5
 # Wait after an action failure before retrying (seconds)
 RETRY_DELAY = 2.0
 # Minimum visibility score required to publish a goal
-MIN_VISIBILITY = 0.02
+MIN_VISIBILITY = 0.08
 
 
 class NBVGoalProviderNode(Node):
@@ -117,6 +118,10 @@ class NBVGoalProviderNode(Node):
         self.declare_parameter('coverage_stagnation_ticks', 3)
         # B3: uncertainty-aware scoring
         self.declare_parameter('enable_uncertainty_scoring', True)
+        # Maze boundary (M2: was hardcoded class constant _MAZE_LIMIT)
+        self.declare_parameter('maze_limit_m', 12.8)
+        # Blacklist cap (M3)
+        self.declare_parameter('max_blacklist_size', 100)
 
         map_frame  = self.get_parameter('map_frame').value
         base_frame = self.get_parameter('base_frame').value
@@ -190,6 +195,7 @@ class NBVGoalProviderNode(Node):
         self._prefetched_goal: Optional[ScoredCandidate] = None
         self._prefetch_lock = threading.Lock()
         self._prefetch_thread: Optional[threading.Thread] = None
+        self._prefetch_crashed: bool = False
 
         # ── ROS I/O ───────────────────────────────────────────────────────────
         self._map_sub = self.create_subscription(
@@ -374,6 +380,10 @@ class NBVGoalProviderNode(Node):
         # ── Prune expired blacklist entries ───────────────────────────────────
         now = time.monotonic()
         self._blacklist = [(p, t) for p, t in self._blacklist if t > now]
+        # Cap blacklist size — keep the entries with the most remaining TTL
+        max_bl = self.get_parameter('max_blacklist_size').value
+        if len(self._blacklist) > max_bl:
+            self._blacklist = sorted(self._blacklist, key=lambda x: x[1])[-max_bl:]
         blacklist_positions = [p for p, _ in self._blacklist]
 
         # ── Candidate generation + scoring ────────────────────────────────────
@@ -432,6 +442,16 @@ class NBVGoalProviderNode(Node):
         """A4: Spawn a background thread to compute the next NBV candidate."""
         with self._prefetch_lock:
             self._prefetched_goal = None  # clear any stale result
+
+        # Restart the thread if it previously crashed
+        if (self._prefetch_thread is not None
+                and not self._prefetch_thread.is_alive()
+                and self._prefetch_crashed):
+            self.get_logger().warning(
+                'Prefetch thread previously crashed — restarting')
+            self._prefetch_crashed = False
+            self._prefetch_thread = None
+
         if self._prefetch_thread is not None and self._prefetch_thread.is_alive():
             return  # already running
         self._prefetch_thread = threading.Thread(
@@ -446,8 +466,10 @@ class NBVGoalProviderNode(Node):
                 self._prefetched_goal = next_goal
             if next_goal is not None:
                 self.get_logger().debug('Prefetch complete — next goal ready')
-        except Exception as exc:
-            self.get_logger().debug(f'Prefetch worker error: {exc}')
+        except Exception:
+            self.get_logger().error(
+                f'Prefetch worker crashed:\n{traceback.format_exc()}')
+            self._prefetch_crashed = True
 
     # =========================================================================
     # Scan conversion helper
@@ -475,6 +497,21 @@ class NBVGoalProviderNode(Node):
     # =========================================================================
 
     def _send_nav_goal(self, x: float, y: float, yaw: float):
+        # Clamp goal inside maze boundaries so a distorted SLAM map can never
+        # send the robot outside the physical walls.
+        limit = self.get_parameter('maze_limit_m').value
+        if abs(x) > limit or abs(y) > limit:
+            self.get_logger().warning(
+                f'Goal ({x:.2f}, {y:.2f}) is outside maze bounds ±{limit} m — blacklisting')
+            # Blacklist the position so the next NBV tick picks a different candidate
+            # instead of regenerating the same out-of-bounds goal repeatedly.
+            if self._current_goal is not None:
+                self._blacklist.append(
+                    (self._current_goal, time.monotonic() + BLACKLIST_TTL))
+            self._nav_active = False
+            self._current_goal = None
+            return
+
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose = PoseStamped()
         goal_msg.pose.header.frame_id = self._map_frame

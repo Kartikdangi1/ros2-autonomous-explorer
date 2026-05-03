@@ -12,16 +12,20 @@ logger = logging.getLogger(__name__)
 class OnnxPolicy:
     """Loads an ONNX model and runs deterministic inference."""
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, use_gpu: bool = True):
         self._session = None
         self._model_path = model_path
         try:
             import onnxruntime as ort
-            self._session = ort.InferenceSession(
-                model_path,
-                providers=['CPUExecutionProvider'],
+            # Prefer GPU providers; ONNX Runtime falls back gracefully if unavailable.
+            providers = (
+                ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                if use_gpu
+                else ['CPUExecutionProvider']
             )
-            logger.info('ONNX model loaded: %s', model_path)
+            self._session = ort.InferenceSession(model_path, providers=providers)
+            active = self._session.get_providers()
+            logger.info('ONNX model loaded: %s  (providers: %s)', model_path, active)
         except Exception as e:
             logger.error('Failed to load ONNX model %s: %s', model_path, e)
 
@@ -37,13 +41,15 @@ class OnnxPolicy:
         if self._session is None:
             return np.zeros(3, dtype=np.float32)
 
-        # Add batch dimension if needed
+        # Add batch dimension if needed — compare each input against its own
+        # expected rank, not against inputs()[0] (which is the costmap, rank 4).
+        input_ranks = {inp.name: len(inp.shape) for inp in self._session.get_inputs()}
         feeds = {}
         for key in ('costmap', 'scan', 'goal_vector', 'velocity'):
-            arr = obs[key]
-            if arr.ndim == len(self._session.get_inputs()[0].shape) - 1:
+            arr = obs[key].astype(np.float32)
+            if arr.ndim < input_ranks.get(key, arr.ndim + 1):
                 arr = arr[np.newaxis, ...]
-            feeds[key] = arr.astype(np.float32)
+            feeds[key] = arr
 
         result = self._session.run(None, feeds)
         action = result[0][0]  # remove batch dim
