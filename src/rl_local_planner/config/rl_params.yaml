@@ -7,12 +7,15 @@ rl_controller:
     # Inference rate (Hz) — matches training step rate
     inference_rate: 10.0
 
-    # Carrot-point extraction: max distance along global path for local goal
+    # Carrot-point extraction: max distance along global path for local goal.
+    # Adaptive: shrinks below carrot_narrow_threshold to avoid wall-skipping in corridors.
     carrot_radius: 3.0
+    carrot_min_scale: 0.35        # minimum fraction of carrot_radius in tight corridors
+    carrot_narrow_threshold: 1.5  # metres — below this LiDAR min, start shrinking
 
-    # Velocity limits (must match nav2_params.yaml / robot.urdf.xacro)
-    max_vel_x: 0.8
-    max_vel_y: 0.6
+    # Velocity limits (must match obs_builder.py MAX_VEL_X/Y used during training)
+    max_vel_x: 0.5
+    max_vel_y: 0.5
     max_vel_theta: 1.5
 
     # Acceleration limits (must match nav2_params.yaml)
@@ -27,8 +30,8 @@ rl_controller:
     # walls are within 0.30 m on multiple sides and the robot froze permanently.
     safety_min_range: 0.22
 
-    # Goal tolerance — must match reward.py goal_tolerance and nav2_params.yaml xy_goal_tolerance
-    goal_tolerance: 0.5
+    # Goal tolerance — must match training_config.yaml goal_tolerance and nav2_params.yaml xy_goal_tolerance
+    goal_tolerance: 0.3
 
     # Observation costmap size (must match training)
     costmap_size: 84

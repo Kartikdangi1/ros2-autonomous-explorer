@@ -271,41 +271,6 @@ class OccupancyMapper:
                   .max(axis=(1, 3)))
         return coarse
 
-    def is_free(self, gx, gy):
-        if not self.is_in_map(gx, gy):
-            return False
-        with self._lock:
-            prob = _log_odds_to_prob(self.log_odds[gy, gx])
-        return prob <= FREE_PROB_THRESHOLD
-
-    def is_known(self, gx, gy):
-        if not self.is_in_map(gx, gy):
-            return False
-        with self._lock:
-            return self.log_odds[gy, gx] != 0.0
-
-    def _bresenham(self, x0, y0, x1, y1):
-        points = []
-        dx = abs(x1 - x0)
-        dy = abs(y1 - y0)
-        sx = 1 if x0 < x1 else -1
-        sy = 1 if y0 < y1 else -1
-        err = dx - dy
-        x, y = x0, y0
-        max_pts = int(np.sqrt(self.width ** 2 + self.height ** 2)) + 10
-        while max_pts > 0:
-            points.append((x, y))
-            if x == x1 and y == y1:
-                break
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x += sx
-            if e2 < dx:
-                err += dx
-                y += sy
-            max_pts -= 1
-        return points
 
 
 # ============================================================
@@ -756,18 +721,6 @@ def _normalize_angle(angle: float) -> float:
     while angle < -np.pi:
         angle += 2.0 * np.pi
     return angle
-
-def _segments_intersect(p1: np.ndarray, p2: np.ndarray,
-                        p3: np.ndarray, p4: np.ndarray) -> bool:
-    d1 = p2 - p1
-    d2 = p4 - p3
-    cross = d1[0] * d2[1] - d1[1] * d2[0]
-    if abs(cross) < 1e-10:
-        return False
-    d3 = p3 - p1
-    t = (d3[0] * d2[1] - d3[1] * d2[0]) / cross
-    u = (d3[0] * d1[1] - d3[1] * d1[0]) / cross
-    return 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0
 
 
 # ============================================================

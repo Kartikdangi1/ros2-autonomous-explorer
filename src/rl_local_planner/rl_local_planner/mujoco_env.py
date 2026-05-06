@@ -29,6 +29,7 @@ from rl_local_planner.mujoco_sim import simulate_lidar, lidar_to_costmap
 from rl_local_planner.obs_builder import (
     COSTMAP_OBS_SIZE,
     MAX_SCAN_RANGE,
+    POSE_HISTORY_LEN,
     SCAN_DIM,
     RawSensorData,
     build_observation,
@@ -84,13 +85,21 @@ class MuJoCoExplorerEnv(gym.Env):
             self._model, _mujoco.mjtObj.mjOBJ_SITE, 'lidar_site')
         self._robot_body_id = _mujoco.mj_name2id(
             self._model, _mujoco.mjtObj.mjOBJ_BODY, 'base_link')
+        self._floor_geom_id = _mujoco.mj_name2id(
+            self._model, _mujoco.mjtObj.mjOBJ_GEOM, 'floor')
+
+        # Store base physics values for domain randomization resets
+        self._base_mass = float(self._model.body_mass[self._robot_body_id])
+        self._base_friction = (float(self._model.geom_friction[self._floor_geom_id, 0])
+                               if self._floor_geom_id >= 0 else 1.0)
 
         # ── Spaces (identical to GazeboExplorerEnv) ──────────────────────
         self.observation_space = gym.spaces.Dict({
-            'costmap':     gym.spaces.Box(0, 255, (COSTMAP_OBS_SIZE, COSTMAP_OBS_SIZE, 1), np.uint8),
-            'scan':        gym.spaces.Box(0.0, 1.0, (SCAN_DIM,), np.float32),
-            'goal_vector': gym.spaces.Box(-1.0, 1.0, (2,), np.float32),
-            'velocity':    gym.spaces.Box(-1.0, 1.0, (3,), np.float32),
+            'costmap':      gym.spaces.Box(0, 255, (COSTMAP_OBS_SIZE, COSTMAP_OBS_SIZE, 1), np.uint8),
+            'scan':         gym.spaces.Box(0.0, 1.0, (SCAN_DIM,), np.float32),
+            'goal_vector':  gym.spaces.Box(-1.0, 1.0, (2,), np.float32),
+            'velocity':     gym.spaces.Box(-1.0, 1.0, (3,), np.float32),
+            'pose_history': gym.spaces.Box(-1.0, 1.0, (POSE_HISTORY_LEN * 2,), np.float32),
         })
         self.action_space = gym.spaces.Box(-1.0, 1.0, (3,), np.float32)
 
@@ -100,6 +109,7 @@ class MuJoCoExplorerEnv(gym.Env):
         self._step_count: int = 0
         self._reward_state  = RewardState()
         self._position_history: deque[tuple[float, float]] = deque(maxlen=STUCK_WINDOW)
+        self._pose_obs_history: deque[tuple[float, float]] = deque(maxlen=POSE_HISTORY_LEN)
         self._dynamics: dict = {}
         self._action_buffer: deque[np.ndarray] = deque()
         self._collision_grace_remaining: int = 0
@@ -224,9 +234,17 @@ class MuJoCoExplorerEnv(gym.Env):
             prev_action=None,
         )
         self._position_history.clear()
+        self._pose_obs_history.clear()
         self._dynamics = self._curriculum.sample_dynamics(self._rng)
         self._action_buffer.clear()
         self._collision_grace_remaining = COLLISION_GRACE_STEPS
+
+        # ── Apply per-episode physics randomization ───────────────────────
+        self._model.body_mass[self._robot_body_id] = (
+            self._base_mass * self._dynamics.get('mass_scale', 1.0))
+        if self._floor_geom_id >= 0:
+            self._model.geom_friction[self._floor_geom_id, 0] = (
+                self._base_friction * self._dynamics.get('friction_scale', 1.0))
 
         obs = self._get_obs()
         info = {
@@ -279,11 +297,21 @@ class MuJoCoExplorerEnv(gym.Env):
             bodyexclude=self._robot_body_id,
         )
 
-        # Domain randomization: sensor noise
+        # Domain randomization: scan noise + LiDAR beam dropout
         scan_noise = self._dynamics.get('scan_noise_sigma', 0.0)
         if scan_noise > 0.0:
             noise = self._rng.normal(0.0, scan_noise, size=scan_metres.shape).astype(np.float32)
             scan_metres = np.clip(scan_metres + noise, 0.0, MAX_SCAN_RANGE)
+        dropout_prob = self._dynamics.get('lidar_dropout_prob', 0.0)
+        if dropout_prob > 0.0:
+            drop_mask = self._rng.random(scan_metres.shape) < dropout_prob
+            scan_metres[drop_mask] = MAX_SCAN_RANGE  # dropped beams → no return
+
+        # Domain randomization: odometry noise on velocity reads
+        odom_noise = self._dynamics.get('odom_noise_sigma', 0.0)
+        if odom_noise > 0.0:
+            vx_b += float(self._rng.normal(0.0, odom_noise))
+            vy_b += float(self._rng.normal(0.0, odom_noise))
 
         # ── Build observation ─────────────────────────────────────────────
         raw = self._build_raw(x, y, yaw, vx_b, vy_b, vyaw_b, scan_metres)
@@ -300,6 +328,7 @@ class MuJoCoExplorerEnv(gym.Env):
         collision    = self._check_collision(scan_metres)
 
         self._position_history.append((x, y))
+        self._pose_obs_history.append((x, y))
         stuck = False
         if len(self._position_history) >= STUCK_WINDOW:
             oldest = self._position_history[0]
@@ -390,6 +419,8 @@ class MuJoCoExplorerEnv(gym.Env):
         raw.robot_vyaw     = vyaw
         raw.goal_x         = self._goal_x
         raw.goal_y         = self._goal_y
+        if len(self._pose_obs_history) > 0:
+            raw.pose_history = np.array(list(self._pose_obs_history), dtype=np.float32)
         return raw
 
     def _get_obs(self) -> dict[str, np.ndarray]:

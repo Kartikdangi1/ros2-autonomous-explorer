@@ -25,6 +25,7 @@ MAX_VEL_X = 0.5              # m/s (matches nav2_params.yaml)
 MAX_VEL_Y = 0.5
 MAX_VEL_THETA = 1.0          # rad/s
 GOAL_NORM = 2.0              # normalisation distance for goal vector (metres)
+POSE_HISTORY_LEN = 5         # number of past positions to include in observation
 
 
 @dataclass
@@ -50,9 +51,38 @@ class RawSensorData:
     goal_x: float = 0.0                        # world frame goal
     goal_y: float = 0.0
 
-    # staleness tracking (number of steps since last update)
-    costmap_age: int = 0
-    scan_age: int = 0
+    # Optional: (POSE_HISTORY_LEN, 2) array of recent world-frame positions,
+    # oldest first. None when history is unavailable (e.g. first few steps).
+    pose_history: np.ndarray | None = None
+
+
+def build_pose_history_obs(raw: RawSensorData) -> np.ndarray:
+    """Build pose history observation: last N positions as body-frame displacements.
+
+    Returns a (POSE_HISTORY_LEN * 2,) float32 array. Each pair is the
+    (dx, dy) from the current position to a past position, rotated into
+    body frame and normalised by GOAL_NORM. Gives the policy spatial memory
+    so it can detect looping without relying solely on the reactive STUCK_WINDOW.
+    """
+    if raw.pose_history is None or len(raw.pose_history) == 0:
+        return np.zeros(POSE_HISTORY_LEN * 2, dtype=np.float32)
+
+    history = raw.pose_history  # (N, 2) float32, world frame
+    cos_yaw = math.cos(-raw.robot_yaw)
+    sin_yaw = math.sin(-raw.robot_yaw)
+
+    result = np.zeros(POSE_HISTORY_LEN * 2, dtype=np.float32)
+    # Pad from the front if we have fewer than POSE_HISTORY_LEN positions
+    offset = POSE_HISTORY_LEN - len(history)
+    for i, (px, py) in enumerate(history):
+        dx_world = px - raw.robot_x
+        dy_world = py - raw.robot_y
+        dx_body = cos_yaw * dx_world - sin_yaw * dy_world
+        dy_body = sin_yaw * dx_world + cos_yaw * dy_world
+        idx = (offset + i) * 2
+        result[idx]     = np.clip(dx_body / GOAL_NORM, -1.0, 1.0)
+        result[idx + 1] = np.clip(dy_body / GOAL_NORM, -1.0, 1.0)
+    return result
 
 
 def build_costmap_obs(raw: RawSensorData) -> np.ndarray:
@@ -120,12 +150,15 @@ def build_velocity_obs(raw: RawSensorData) -> np.ndarray:
 
 def build_observation(raw: RawSensorData) -> dict[str, np.ndarray]:
     """Build the full Dict observation consumed by the PPO policy."""
-    return {
+    obs = {
         'costmap': build_costmap_obs(raw),
         'scan': build_scan_obs(raw),
         'goal_vector': build_goal_obs(raw),
         'velocity': build_velocity_obs(raw),
     }
+    if raw.pose_history is not None:
+        obs['pose_history'] = build_pose_history_obs(raw)
+    return obs
 
 
 def scale_action(action: np.ndarray) -> tuple[float, float, float]:

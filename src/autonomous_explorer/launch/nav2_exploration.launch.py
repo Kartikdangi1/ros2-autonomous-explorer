@@ -56,6 +56,7 @@ from launch_ros.substitutions import FindPackageShare
 
 # ── Package paths ─────────────────────────────────────────────────────────────
 PKG     = get_package_share_directory('autonomous_explorer')
+RL_PKG  = get_package_share_directory('rl_local_planner')
 
 # ── Config file paths ─────────────────────────────────────────────────────────
 BRIDGE_PARAMS  = os.path.join(PKG, 'config', 'robot_params.yaml')
@@ -63,6 +64,7 @@ FUSION_PARAMS  = os.path.join(PKG, 'config', 'sensor_fusion_params.yaml')
 RVIZ_CONFIG    = os.path.join(PKG, 'config', 'rviz_config.rviz')
 URDF_FILE      = os.path.join(PKG, 'urdf', 'robot.urdf.xacro')
 WORLD_FILE     = os.path.join(PKG, 'urdf', 'worlds', 'maze_world.sdf')
+RL_PARAMS      = os.path.join(RL_PKG, 'config', 'rl_params.yaml')
 
 # ── Sub-launch file paths ─────────────────────────────────────────────────────
 LOCALIZATION_LAUNCH = os.path.join(PKG, 'launch', 'localization.launch.py')
@@ -180,6 +182,15 @@ def launch_setup(context, *args, **kwargs):
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_rviz     = LaunchConfiguration('use_rviz')
 
+    slam_delay  = float(LaunchConfiguration('slam_delay').perform(context))
+    nav2_delay  = float(LaunchConfiguration('nav2_delay').perform(context))
+    nbv_delay   = float(LaunchConfiguration('nbv_delay').perform(context))
+    controller  = LaunchConfiguration('controller').perform(context)
+
+    # When RL controller is active, remap DWB output to a dead topic so it
+    # doesn't fight with the RL node over /cmd_vel.
+    cmd_vel_topic = '/cmd_vel_dwb' if controller == 'rl' else '/cmd_vel'
+
     # ── Generate combined world (robot embedded statically) ───────────────────
     world_tmp_path = _build_world_with_robot()
 
@@ -224,22 +235,26 @@ def launch_setup(context, *args, **kwargs):
         PythonLaunchDescriptionSource(LOCALIZATION_LAUNCH),
         launch_arguments={'use_sim_time': use_sim_time}.items())
 
-    # ── 6. Mapping — SLAM Toolbox (map + map→odom TF) — delayed 12 s ─────────
+    # ── 6. Mapping — SLAM Toolbox (map + map→odom TF) — delayed slam_delay s ──
     # Waits for: Gazebo physics started, /scan publishing, EKF TF live.
     # SLAM uses /scan (raw LiDAR, BEST_EFFORT QoS) for reliable scan delivery.
     mapping = TimerAction(
-        period=12.0,
+        period=slam_delay,
         actions=[IncludeLaunchDescription(
             PythonLaunchDescriptionSource(MAPPING_LAUNCH),
             launch_arguments={'use_sim_time': use_sim_time}.items())])
 
-    # ── 7. Navigation — Nav2 planner + controller + BT — delayed 17 s ────────
+    # ── 7. Navigation — Nav2 planner + controller + BT — delayed nav2_delay s ─
     # Waits for: /map published by SLAM Toolbox (needs ~3-4 s after SLAM start)
+    # cmd_vel_topic is /cmd_vel (DWB mode) or /cmd_vel_dwb (RL mode, dead topic)
     navigation = TimerAction(
-        period=17.0,
+        period=nav2_delay,
         actions=[IncludeLaunchDescription(
             PythonLaunchDescriptionSource(NAVIGATION_LAUNCH),
-            launch_arguments={'use_sim_time': use_sim_time}.items())])
+            launch_arguments={
+                'use_sim_time': use_sim_time,
+                'cmd_vel_topic': cmd_vel_topic,
+            }.items())])
 
     # ── 8. Obstacle detection (frontend) ──────────────────────────────────────
     obstacle_cluster_node = Node(
@@ -258,10 +273,10 @@ def launch_setup(context, *args, **kwargs):
         ],
         output='screen')
 
-    # ── 9. NBV goal provider — mission controller — delayed 22 s ──────────────
+    # ── 9. NBV goal provider — mission controller — delayed nbv_delay s ─────────
     # Waits for: Nav2 navigate_to_pose action server active (lifecycle complete)
     nbv_goal_provider = TimerAction(
-        period=22.0,
+        period=nbv_delay,
         actions=[Node(
             package='autonomous_explorer',
             executable='nbv_goal_provider_node.py',
@@ -273,22 +288,21 @@ def launch_setup(context, *args, **kwargs):
                 'num_sectors': 72,
                 'jump_threshold': 1.5,
                 'max_range': 19.0,
-                'candidate_offset': 1.0,   # was 0.5 — keeps goals ≥1 m from walls
+                'candidate_offset': 1.0,
                 'sample_spacing': 1.0,
                 'exploration_radius': 10.0,
                 'weight_visibility': 3.0,
                 'weight_distance': 1.0,
                 'weight_orientation': 0.5,
                 'num_rays': 72,
-                'goal_tolerance': 0.8,
-                'min_visibility_threshold': 0.045,  # was 0.05 — allow low-visibility corners
+                'min_visibility_threshold': 0.045,
             }],
             output='screen')])
 
-    # ── 10. Path speed limiter — curvature-based DWB speed control — delayed 22 s ──
+    # ── 10. Path speed limiter — curvature-based DWB speed control — delayed nbv_delay s ──
     # Waits for: Nav2 action server active (same gate as NBV)
     path_speed_limiter = TimerAction(
-        period=22.0,
+        period=nbv_delay,
         actions=[Node(
             package='autonomous_explorer',
             executable='path_speed_limiter_node.py',
@@ -296,7 +310,21 @@ def launch_setup(context, *args, **kwargs):
             parameters=[{'use_sim_time': use_sim_time}],
             output='screen')])
 
-    # ── 11. RViz2 ─────────────────────────────────────────────────────────────
+    # ── 11. RL controller (only when controller:=rl) ──────────────────────────
+    # Reads the global /plan, runs ONNX inference at 10 Hz, publishes /cmd_vel.
+    # DWB still runs but its output is silenced (/cmd_vel_dwb dead topic).
+    rl_controller = None
+    if controller == 'rl':
+        rl_controller = TimerAction(
+            period=nbv_delay,
+            actions=[Node(
+                package='rl_local_planner',
+                executable='rl_controller_node.py',
+                name='rl_controller',
+                parameters=[RL_PARAMS, {'use_sim_time': use_sim_time}],
+                output='screen')])
+
+    # ── 12. RViz2 ────────────────────────────────────────────────────────────
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -306,7 +334,7 @@ def launch_setup(context, *args, **kwargs):
         condition=IfCondition(use_rviz),
         output='screen')
 
-    return [
+    actions = [
         # Propagate use_sim_time to all nodes (including those in sub-launches)
         SetParameter(name='use_sim_time', value=use_sim_time),
 
@@ -319,24 +347,29 @@ def launch_setup(context, *args, **kwargs):
         sensor_fusion,
         localization,
 
-        # Mapping (T+12, after EKF is publishing TF)
+        # Mapping (T+slam_delay, after EKF is publishing TF)
         mapping,
 
-        # Navigation (T+17, after SLAM has published first /map)
+        # Navigation (T+nav2_delay, after SLAM has published first /map)
         navigation,
 
         # Obstacle detection
         obstacle_cluster_node,
 
-        # Mission controller (T+22, after Nav2 action server is active)
+        # Mission controller (T+nbv_delay, after Nav2 action server is active)
         nbv_goal_provider,
 
-        # Speed limiter (T+22, curvature-based DWB velocity scaling)
+        # Speed limiter (T+nbv_delay, curvature-based DWB velocity scaling)
         path_speed_limiter,
 
         # Visualisation
         rviz,
     ]
+
+    if rl_controller is not None:
+        actions.append(rl_controller)
+
+    return actions
 
 
 def generate_launch_description():
@@ -349,8 +382,29 @@ def generate_launch_description():
         'use_rviz', default_value='true',
         description='Launch RViz2')
 
+    slam_delay_arg = DeclareLaunchArgument(
+        'slam_delay', default_value='12.0',
+        description='Seconds to wait before starting SLAM Toolbox (after EKF + /scan ready)')
+
+    nav2_delay_arg = DeclareLaunchArgument(
+        'nav2_delay', default_value='17.0',
+        description='Seconds to wait before starting Nav2 (after SLAM publishes first /map)')
+
+    nbv_delay_arg = DeclareLaunchArgument(
+        'nbv_delay', default_value='22.0',
+        description='Seconds to wait before starting NBV + speed limiter (after Nav2 action server ready)')
+
+    controller_arg = DeclareLaunchArgument(
+        'controller', default_value='dwb',
+        description='Local planner backend: dwb (classical DWB) or rl (PPO ONNX policy). '
+                    'rl mode: DWB output is silenced, rl_controller_node owns /cmd_vel.')
+
     return LaunchDescription([
         use_sim_time_arg,
         use_rviz_arg,
+        slam_delay_arg,
+        nav2_delay_arg,
+        nbv_delay_arg,
+        controller_arg,
         OpaqueFunction(function=launch_setup),
     ])

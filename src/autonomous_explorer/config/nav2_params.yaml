@@ -185,7 +185,7 @@ controller_server:
 
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.5          # unified with reward.py and rl_params.yaml goal_tolerance
+      xy_goal_tolerance: 0.3          # must match training_config.yaml goal_tolerance and rl_params.yaml
       yaw_goal_tolerance: 1.57        # holonomic: don't care about final heading
       stateful: true
 
@@ -231,8 +231,8 @@ controller_server:
       angular_granularity: 0.025
       trans_stopped_velocity: 0.05
 
-      # Goal tolerance
-      xy_goal_tolerance: 0.4
+      # Goal tolerance — must match training_config.yaml goal_tolerance and rl_params.yaml
+      xy_goal_tolerance: 0.3
       yaw_goal_tolerance: 1.57        # holonomic: final heading irrelevant
       transform_tolerance: 2.0        # was 1.0 — covers momentary SLAM TF stalls
       short_circuit_trajectory_evaluation: true
@@ -257,6 +257,69 @@ controller_server:
       GoalDist.scale: 20.0
       BaseObstacle.scale: 2.5
       Oscillation.scale: 10.0
+
+    # ── MPPI — Model Predictive Path Integral (alternative to DWB) ────────────
+    # To activate: change controller_plugins above to ["MPPIFollowPath"]
+    # MPPI samples thousands of trajectory rollouts and picks the best.
+    # Handles dynamic obstacles better, smoother output, GPU-acceleratable.
+    # motion_model: Omni = holonomic (Mecanum wheels can strafe).
+    MPPIFollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      time_steps: 56
+      model_dt: 0.05
+      batch_size: 2000
+      vx_max: 0.5
+      vx_min: -0.3
+      vy_max: 0.5
+      vy_min: -0.5
+      wz_max: 1.5
+      iteration_count: 1
+      prune_distance: 1.5
+      transform_tolerance: 2.0
+      temperature: 0.3
+      gamma: 0.015
+      motion_model: "Omni"
+      visualize: false
+      critics:
+        ["ConstraintCritic", "GoalCritic", "GoalAngleCritic",
+         "ObstaclesCritic", "PathFollowCritic", "PathAngleCritic"]
+      ConstraintCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 4.0
+      GoalCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        threshold_to_consider: 0.5
+      GoalAngleCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 3.0
+        threshold_to_consider: 0.5
+      ObstaclesCritic:
+        enabled: true
+        cost_power: 1
+        repulsion_weight: 1.5
+        critical_weight: 20.0
+        consider_footprint: true
+        collision_cost: 10000.0
+        collision_margin_distance: 0.10
+        near_goal_distance: 0.5
+        inflation_radius: 0.30
+      PathFollowCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 5.0
+        offset_from_furthest: 5
+        threshold_to_consider: 0.5
+      PathAngleCritic:
+        enabled: true
+        cost_power: 1
+        cost_weight: 2.0
+        offset_from_furthest: 4
+        threshold_to_consider: 0.5
+        mode: 0
 
 
 # ===========================================================================

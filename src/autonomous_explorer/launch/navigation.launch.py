@@ -40,7 +40,13 @@ def generate_launch_description():
         'use_sim_time', default_value='true',
         description='Use Gazebo simulation time')
 
+    cmd_vel_topic_arg = DeclareLaunchArgument(
+        'cmd_vel_topic', default_value='/cmd_vel',
+        description='Topic controller_server publishes velocity commands to. '
+                    'Set to /cmd_vel_dwb when RL controller owns /cmd_vel.')
+
     use_sim_time = LaunchConfiguration('use_sim_time')
+    cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
 
     # ── Global path planner ───────────────────────────────────────────────────
     planner_server = Node(
@@ -58,7 +64,7 @@ def generate_launch_description():
         executable='controller_server',
         name='controller_server',
         parameters=[NAV2_PARAMS],
-        remappings=[('/cmd_vel', '/cmd_vel')],
+        remappings=[('/cmd_vel', cmd_vel_topic)],
         arguments=['--ros-args', '--log-level', 'controller_server:=WARN'],
         output='screen')
 
@@ -98,6 +104,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         use_sim_time_arg,
+        cmd_vel_topic_arg,
         planner_server,
         controller_server,
         behavior_server,

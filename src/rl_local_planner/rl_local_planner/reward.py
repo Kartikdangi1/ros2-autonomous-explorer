@@ -33,8 +33,8 @@ class RewardWeights:
     near_goal_radius: float = 0.8 # metres — approach-zone amplifier radius
 
     proximity_threshold: float = 0.5  # metres — fires before 0.45m wall in 0.9m corridor
-    # NOTE: must match goal_tolerance in rl_params.yaml and nav2_params.yaml xy_goal_tolerance
-    goal_tolerance: float = 0.5       # metres — goal reached threshold
+    # NOTE: must match goal_tolerance in training_config.yaml, rl_params.yaml, nav2_params.yaml xy_goal_tolerance
+    goal_tolerance: float = 0.3       # metres — goal reached threshold
 
 
 @dataclass

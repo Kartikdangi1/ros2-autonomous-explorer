@@ -42,8 +42,8 @@ from rl_local_planner.curriculum import CurriculumManager
 # ── Constants ────────────────────────────────────────────────────────────────
 COLLISION_LIDAR_THRESHOLD = 0.15   # metres (inside chassis = certain collision)
 COLLISION_COSTMAP_LETHAL = 253     # Nav2 inscribed/lethal threshold
-STUCK_WINDOW = 25                  # steps
-STUCK_THRESHOLD = 0.05             # metres
+STUCK_WINDOW = 60                  # steps — sync with mujoco_env.py
+STUCK_THRESHOLD = 0.15             # metres — sync with mujoco_env.py (0.05 triggered false-positives)
 MAX_STEPS = 200                    # per episode (20 s at 10 Hz)
 STEP_TIMEOUT = 0.15                # seconds to wait for new scan
 RESET_SETTLE_TIME = 0.5            # seconds after teleport (EKF reset handles sync)
@@ -156,7 +156,6 @@ class GazeboExplorerEnv(gym.Env):
     def _scan_cb(self, msg: LaserScan) -> None:
         with self._lock:
             self._raw.scan_ranges = np.array(msg.ranges, dtype=np.float32)
-            self._raw.scan_age = 0
         self._scan_event.set()
 
     def _costmap_cb(self, msg: OccupancyGrid) -> None:
@@ -167,7 +166,6 @@ class GazeboExplorerEnv(gym.Env):
             self._raw.costmap_resolution = msg.info.resolution
             self._raw.costmap_origin_x = msg.info.origin.position.x
             self._raw.costmap_origin_y = msg.info.origin.position.y
-            self._raw.costmap_age = 0
 
     def _odom_cb(self, msg: Odometry) -> None:
         with self._lock:
@@ -487,11 +485,6 @@ class GazeboExplorerEnv(gym.Env):
         # ── Wait for next scan (gate on scan arrival) ────────────────────
         self._scan_event.clear()
         self._scan_event.wait(timeout=STEP_TIMEOUT)
-
-        # Age tracking for stale observations
-        with self._lock:
-            self._raw.costmap_age += 1
-            # scan_age is reset to 0 in _scan_cb when new scan arrives
 
         # ── Apply sensor noise (domain randomization) ────────────────────
         scan_noise = self._dynamics.get('scan_noise_sigma', 0.0)

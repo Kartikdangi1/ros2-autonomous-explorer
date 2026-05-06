@@ -102,7 +102,6 @@ class NBVGoalProviderNode(Node):
         self.declare_parameter('use_entropy_scoring', False)  # Ext 2: feature flag
         self.declare_parameter('weight_frontier_size', 1.5)   # B1: frontier-size bonus
         # Goal
-        self.declare_parameter('goal_tolerance', 0.8)
         self.declare_parameter('min_visibility_threshold', MIN_VISIBILITY)
         # Extension 1: Goal pre-validation
         self.declare_parameter('pre_validate_goals', True)

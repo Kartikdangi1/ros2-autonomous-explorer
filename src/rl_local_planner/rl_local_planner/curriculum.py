@@ -92,9 +92,11 @@ class StageConfig:
     friction_range: tuple[float, float] = (1.0, 1.0)
     vel_scale_range: tuple[float, float] = (1.0, 1.0)
     action_delay_max_steps: int = 0
+    mass_scale_range: tuple[float, float] = (1.0, 1.0)   # robot body mass multiplier
     # Sensor noise
     scan_noise_sigma_max: float = 0.02
     odom_noise_sigma_max: float = 0.05
+    lidar_dropout_max: float = 0.0    # fraction of beams randomly dropped
 
 
 STAGES: list[StageConfig] = [
@@ -137,8 +139,10 @@ STAGES: list[StageConfig] = [
         friction_range=(0.7, 1.3),
         vel_scale_range=(0.8, 1.2),
         action_delay_max_steps=2,
+        mass_scale_range=(0.85, 1.15),
         scan_noise_sigma_max=0.02,
         odom_noise_sigma_max=0.05,
+        lidar_dropout_max=0.08,
     ),
 ]
 
@@ -264,12 +268,17 @@ class CurriculumManager:
             'scan_noise_sigma': float(rng.uniform(0.0, cfg.scan_noise_sigma_max)),
             'odom_noise_sigma': float(rng.uniform(0.0, cfg.odom_noise_sigma_max)),
             'action_delay_steps': 0,
+            'friction_scale': 1.0,
+            'mass_scale': 1.0,
+            'lidar_dropout_prob': float(rng.uniform(0.0, cfg.lidar_dropout_max)),
         }
         if cfg.use_dynamics_randomization:
             result['vel_scale'] = float(rng.uniform(*cfg.vel_scale_range))
             result['action_delay_steps'] = int(
                 rng.integers(0, cfg.action_delay_max_steps + 1)
             )
+            result['friction_scale'] = float(rng.uniform(*cfg.friction_range))
+            result['mass_scale'] = float(rng.uniform(*cfg.mass_scale_range))
         return result
 
     def get_stats(self) -> dict:

@@ -1,4 +1,12 @@
-# PPO training hyperparameters and reward weights
+# Hydra training config — single source of truth for all training hyperparams.
+# Override any field on the CLI: python train_ppo.py sim=mujoco num_envs=8
+# Hydra auto-saves the resolved config to outputs/<date>/<time>/.hydra/
+
+# ── Runtime (CLI overrides, not saved to model card) ─────────────────────────
+sim: mujoco          # gazebo | mujoco | point2d
+seed: 42
+num_envs: 1
+resume_from: null    # path to checkpoint .zip to resume from (no .zip extension)
 
 # ── PPO hyperparameters ──────────────────────────────────────────────────────
 policy: MultiInputPolicy
@@ -33,15 +41,14 @@ save_dir: "./rl_checkpoints/"
 best_model_dir: "./rl_best_model/"
 
 # ── Reward weights ───────────────────────────────────────────────────────────
-# goal_progress is normalised by initial distance → consistent scale
-reward_progress: 5.0       # × (fraction of initial distance closed per step)
-reward_goal_reached: 25.0  # one-time bonus on success
-reward_collision: -5.0     # one-time penalty on collision
-reward_proximity: -0.5     # × max(0, threshold - min_range)  [soft LiDAR warning]
-reward_smoothness: -0.1    # × ||action_t - action_{t-1}||
-reward_step_cost: -0.03    # per-step penalty (encourages efficiency, penalizes hovering)
-reward_heading: 0.2        # × cos(angle_to_goal) — bootstraps directional learning
-reward_near_goal: 5.0      # × approach progress inside radius (approach-only, zero for hovering)
-reward_near_goal_radius: 0.8  # metres — approach amplifier zone boundary
-goal_tolerance: 0.3           # metres — distance threshold for goal_reached
-reward_proximity_threshold: 0.5  # metres — proximity penalty fires below this range
+reward_progress: 5.0
+reward_goal_reached: 25.0
+reward_collision: -5.0
+reward_proximity: -0.5
+reward_smoothness: -0.1
+reward_step_cost: -0.03
+reward_heading: 0.2
+reward_near_goal: 5.0
+reward_near_goal_radius: 0.8
+reward_proximity_threshold: 0.5
+goal_tolerance: 0.3

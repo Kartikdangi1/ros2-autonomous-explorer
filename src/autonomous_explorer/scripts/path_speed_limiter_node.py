@@ -10,14 +10,14 @@ DWB's output velocities by this limit automatically (speed_limit_topic param).
 Result: full speed on straight corridors, automatic deceleration into turns.
 """
 
-import math
-
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
 
 from nav_msgs.msg import Odometry, Path
 from nav2_msgs.msg import SpeedLimit
+
+from autonomous_explorer.nbv_utils import _normalize_angle
 
 LOOKAHEAD_M = 1.0    # arc-length window to measure curvature (metres)
 PUBLISH_HZ  = 10.0   # speed-limit publish rate
@@ -29,14 +29,6 @@ SPEED_TABLE = [
     (0.7, 0.35),  # gentle curve — ~70 % of max
     (9e9, 0.20),  # sharp turn  — ~40 % of max
 ]
-
-
-def _normalize_angle(a: float) -> float:
-    while a > math.pi:
-        a -= 2.0 * math.pi
-    while a < -math.pi:
-        a += 2.0 * math.pi
-    return a
 
 
 class PathSpeedLimiterNode(Node):

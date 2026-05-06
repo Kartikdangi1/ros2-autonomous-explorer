@@ -21,15 +21,20 @@ import os
 import optuna
 import rclpy
 import yaml
+from hydra import compose, initialize_config_dir
+from omegaconf import OmegaConf
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecTransposeImage
 
 from rl_local_planner.config_schema import TrainingConfig
 from rl_local_planner.curriculum import CurriculumManager
 from rl_local_planner.feature_extractor import RobotFeatureExtractor
 from rl_local_planner.gym_env import GazeboExplorerEnv
 from rl_local_planner.reward import RewardWeights
+
+# Path to Hydra conf directory (relative to this script)
+_CONF_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'conf'))
 
 
 def make_env(curriculum: CurriculumManager, reward_weights: RewardWeights, seed: int):
@@ -59,42 +64,58 @@ def objective(trial: optuna.Trial) -> float:
 
     seed = trial.number * 1000 + 42
 
-    cfg = TrainingConfig(
-        learning_rate=learning_rate,
-        n_steps=n_steps,
-        batch_size=batch_size,
-        n_epochs=n_epochs,
-        ent_coef=ent_coef,
-        gamma=gamma,
-        gae_lambda=gae_lambda,
-        clip_range=clip_range,
-        total_timesteps=100_000,  # shorter for sweep trials
-        eval_freq=10_000,
-        n_eval_episodes=5,
-        reward_progress=reward_progress,
-        reward_goal_reached=reward_goal_reached,
-        reward_collision=reward_collision,
-        reward_proximity=reward_proximity,
-        tb_log_dir=f'./tb_logs/sweep/trial_{trial.number}',
-        save_dir=f'./rl_checkpoints/sweep/trial_{trial.number}',
-        best_model_dir=f'./rl_best_model/sweep/trial_{trial.number}',
-    )
+    # Load base config from Hydra conf/ so sweep trials start from the canonical
+    # values (not hardcoded defaults), then override only the swept parameters.
+    with initialize_config_dir(config_dir=_CONF_DIR, version_base=None):
+        base_cfg = OmegaConf.to_container(compose(config_name='config'), resolve=True)
+
+    cfg = TrainingConfig(**{
+        **base_cfg,
+        # Sweep-specific overrides
+        'learning_rate': learning_rate,
+        'n_steps': n_steps,
+        'batch_size': batch_size,
+        'n_epochs': n_epochs,
+        'ent_coef': ent_coef,
+        'gamma': gamma,
+        'gae_lambda': gae_lambda,
+        'clip_range': clip_range,
+        'total_timesteps': 100_000,  # shorter for sweep trials
+        'eval_freq': 10_000,
+        'n_eval_episodes': 5,
+        'reward_progress': reward_progress,
+        'reward_goal_reached': reward_goal_reached,
+        'reward_collision': reward_collision,
+        'reward_proximity': reward_proximity,
+        'tb_log_dir': f'./tb_logs/sweep/trial_{trial.number}',
+        'save_dir': f'./rl_checkpoints/sweep/trial_{trial.number}',
+        'best_model_dir': f'./rl_best_model/sweep/trial_{trial.number}',
+    })
 
     reward_weights = RewardWeights(
         progress=cfg.reward_progress,
         goal_reached=cfg.reward_goal_reached,
         collision=cfg.reward_collision,
         proximity=cfg.reward_proximity,
+        smoothness=cfg.reward_smoothness,
+        step_cost=cfg.reward_step_cost,
+        heading=cfg.reward_heading,
+        near_goal=cfg.reward_near_goal,
+        near_goal_radius=cfg.reward_near_goal_radius,
+        proximity_threshold=cfg.reward_proximity_threshold,
+        goal_tolerance=cfg.goal_tolerance,
     )
     curriculum = CurriculumManager()
 
     env = DummyVecEnv([make_env(curriculum, reward_weights, seed)])
     env = VecNormalize(env, norm_obs=False, norm_reward=True, gamma=cfg.gamma)
+    env = VecTransposeImage(env)
     eval_env = DummyVecEnv([make_env(curriculum, reward_weights, seed + 500)])
+    eval_env = VecTransposeImage(eval_env)
 
     policy_kwargs = {
         'features_extractor_class': RobotFeatureExtractor,
-        'features_extractor_kwargs': {'features_dim': 128},
+        'features_extractor_kwargs': {'features_dim': cfg.features_dim},
     }
 
     os.makedirs(cfg.save_dir, exist_ok=True)
@@ -111,7 +132,7 @@ def objective(trial: optuna.Trial) -> float:
     )
 
     model = PPO(
-        'MultiInputPolicy',
+        cfg.policy,
         env,
         learning_rate=cfg.learning_rate,
         n_steps=cfg.n_steps,
@@ -121,8 +142,8 @@ def objective(trial: optuna.Trial) -> float:
         gae_lambda=cfg.gae_lambda,
         clip_range=cfg.clip_range,
         ent_coef=cfg.ent_coef,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
+        vf_coef=cfg.vf_coef,
+        max_grad_norm=cfg.max_grad_norm,
         verbose=0,
         tensorboard_log=cfg.tb_log_dir,
         policy_kwargs=policy_kwargs,

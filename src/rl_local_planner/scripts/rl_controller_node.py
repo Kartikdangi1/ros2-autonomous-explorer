@@ -50,6 +50,8 @@ class RLControllerNode(Node):
         self.declare_parameter('model_path', '')
         self.declare_parameter('inference_rate', 10.0)
         self.declare_parameter('carrot_radius', 3.0)
+        self.declare_parameter('carrot_min_scale', 0.35)
+        self.declare_parameter('carrot_narrow_threshold', 1.5)
         self.declare_parameter('max_vel_x', 0.5)
         self.declare_parameter('max_vel_y', 0.5)
         self.declare_parameter('max_vel_theta', 1.0)
@@ -68,6 +70,8 @@ class RLControllerNode(Node):
         model_path = self.get_parameter('model_path').value
         rate = self.get_parameter('inference_rate').value
         self._carrot_radius = self.get_parameter('carrot_radius').value
+        self._carrot_min_scale = self.get_parameter('carrot_min_scale').value
+        self._carrot_narrow_threshold = self.get_parameter('carrot_narrow_threshold').value
         self._max_vx = self.get_parameter('max_vel_x').value
         self._max_vy = self.get_parameter('max_vel_y').value
         self._max_vyaw = self.get_parameter('max_vel_theta').value
@@ -193,8 +197,23 @@ class RLControllerNode(Node):
 
         with self._lock:
             rx, ry = self._raw.robot_x, self._raw.robot_y
+            latest_scan = (self._raw.scan_ranges.copy()
+                           if self._raw.scan_ranges is not None else None)
 
-        radius = self._carrot_radius
+        # Adaptive carrot radius — shrink in tight corridors so the robot
+        # doesn't try to target a point on the far side of a wall.
+        if latest_scan is not None:
+            min_range = float(np.min(latest_scan))
+            if min_range < self._carrot_narrow_threshold:
+                corridor_scale = max(
+                    self._carrot_min_scale,
+                    min_range / self._carrot_narrow_threshold)
+            else:
+                corridor_scale = 1.0
+        else:
+            corridor_scale = 1.0
+        radius = self._carrot_radius * corridor_scale
+
         best = None
         best_idx = -1
 
@@ -211,7 +230,7 @@ class RLControllerNode(Node):
         if best is not None:
             return best
 
-        # Fallback: closest path point within carrot_radius that still has LOS.
+        # Fallback: closest path point within radius that still has LOS.
         # The original fallback had no LOS check and searched the entire plan —
         # this could target a point on the far side of a wall when no nearby
         # point is visible, driving the robot directly into the obstacle.
@@ -219,7 +238,7 @@ class RLControllerNode(Node):
         los_fallback = None
         for px, py in plan:
             dist = math.hypot(px - rx, py - ry)
-            if dist <= self._carrot_radius and dist < min_dist:
+            if dist <= radius and dist < min_dist:
                 if self._line_of_sight(rx, ry, px, py):
                     min_dist = dist
                     los_fallback = (px, py)

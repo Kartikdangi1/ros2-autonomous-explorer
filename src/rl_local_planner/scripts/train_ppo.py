@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """PPO training script for the RL local planner.
 
-Usage (after starting the training launch):
-    ros2 launch rl_local_planner train.launch.py
-    # In a separate terminal:
-    python3 train_ppo.py [--config path/to/training_config.yaml]
+Usage:
+    python3 train_ppo.py                        # defaults (mujoco, seed=42)
+    python3 train_ppo.py sim=mujoco num_envs=8  # Hydra overrides
+    python3 train_ppo.py reward_proximity=-1.0  # override any param
+    python3 train_ppo.py --cfg job              # print resolved config, no training
+
+Hydra saves the full resolved config to outputs/<date>/<time>/.hydra/config.yaml.
+A training_config_used.yaml is also saved alongside the final model checkpoint.
 
 TensorBoard:
     tensorboard --logdir ./tb_logs/
@@ -12,7 +16,6 @@ TensorBoard:
 
 from __future__ import annotations
 
-import argparse
 import datetime
 import hashlib
 import json
@@ -23,9 +26,11 @@ import subprocess
 import sys
 import uuid
 
+import hydra
 import numpy as np
 import torch
 import yaml
+from omegaconf import DictConfig, OmegaConf
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import (
     BaseCallback,
@@ -92,8 +97,6 @@ def save_model_card(
     cfg: TrainingConfig,
     seed: int,
     curriculum_stage: int,
-    eval_reward_mean: float | None = None,
-    eval_reward_std: float | None = None,
     total_timesteps_done: int = 0,
 ) -> None:
     """Write a model_card.yaml alongside a saved checkpoint."""
@@ -118,8 +121,6 @@ def save_model_card(
         'seed': seed,
         'total_timesteps': total_timesteps_done,
         'curriculum_stage_reached': curriculum_stage,
-        'eval_reward_mean': eval_reward_mean,
-        'eval_reward_std': eval_reward_std,
         'python_version': platform.python_version(),
         'torch_version': torch.__version__,
         'sb3_version': '2.7.1',
@@ -222,15 +223,6 @@ class ModelCardCallback(BaseCallback):
 
 # ── Config loading ───────────────────────────────────────────────────────────
 
-def load_config(path: str | None) -> TrainingConfig:
-    """Load and validate training config YAML via Pydantic."""
-    if path and os.path.isfile(path):
-        with open(path) as f:
-            user_cfg = yaml.safe_load(f) or {}
-        return TrainingConfig(**user_cfg)
-    return TrainingConfig()
-
-
 # ── Environment factory ─────────────────────────────────────────────────────
 
 def make_env(curriculum: CurriculumManager, reward_weights: RewardWeights, seed: int):
@@ -274,32 +266,22 @@ def make_point2d_env(curriculum: CurriculumManager,
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def main():
-    parser = argparse.ArgumentParser(description='Train PPO RL local planner')
-    parser.add_argument('--config', type=str, default=None,
-                        help='Path to training_config.yaml')
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--num-envs', type=int, default=1,
-                        help='Number of parallel environments (requires N Gazebo instances)')
-    parser.add_argument('--sim', choices=['gazebo', 'mujoco', 'point2d'], default='gazebo',
-                        help='Simulator backend (point2d: fastest, mujoco: fast headless, gazebo: full ROS2)')
-    parser.add_argument('--resume-from', type=str, default=None,
-                        help='Path to checkpoint to resume from (e.g., ./rl_checkpoints/ppo_final)')
-    args = parser.parse_args()
+@hydra.main(config_path='../conf', config_name='config', version_base=None)
+def main(hydra_cfg: DictConfig) -> None:
+    # Convert OmegaConf DictConfig → TrainingConfig dataclass (validates types)
+    cfg = TrainingConfig(**OmegaConf.to_container(hydra_cfg, resolve=True))
 
     # ── Run ID ────────────────────────────────────────────────────────────
     run_id = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') + '_' + uuid.uuid4().hex[:6]
 
-    # ── Config ────────────────────────────────────────────────────────────
-    cfg = load_config(args.config)
-
     # ── Logging ───────────────────────────────────────────────────────────
     log = setup_logging(cfg.tb_log_dir, run_id)
     log.info('Run ID: %s', run_id)
-    log.info('Config: %s', cfg.model_dump())
+    log.info('sim=%s  seed=%d  num_envs=%d', cfg.sim, cfg.seed, cfg.num_envs)
+    log.info('Config: %s', vars(cfg))
 
     # ── Seeding ───────────────────────────────────────────────────────────
-    seed_everything(args.seed, log)
+    seed_everything(cfg.seed, log)
 
     # ── Reward weights ───────────────────────────────────────────────────
     reward_weights = RewardWeights(
@@ -312,6 +294,7 @@ def main():
         heading=cfg.reward_heading,
         near_goal=cfg.reward_near_goal,
         near_goal_radius=cfg.reward_near_goal_radius,
+        proximity_threshold=cfg.reward_proximity_threshold,
         goal_tolerance=cfg.goal_tolerance,
     )
 
@@ -319,31 +302,31 @@ def main():
     curriculum = CurriculumManager()
 
     # ── Environment ──────────────────────────────────────────────────────
-    num_envs = args.num_envs
+    num_envs = cfg.num_envs
 
-    if args.sim == 'point2d':
+    if cfg.sim == 'point2d':
         log.info('Point2D backend — pure Python, no external simulator')
-        env_fns = [make_point2d_env(curriculum, reward_weights, args.seed + i * 1000)
+        env_fns = [make_point2d_env(curriculum, reward_weights, cfg.seed + i * 1000)
                    for i in range(num_envs)]
-        eval_env_fns = [make_point2d_env(curriculum, reward_weights, args.seed + 1000)]
-    elif args.sim == 'mujoco':
+        eval_env_fns = [make_point2d_env(curriculum, reward_weights, cfg.seed + 1000)]
+    elif cfg.sim == 'mujoco':
         mjcf_path = os.path.join(
             os.path.dirname(__file__), '..', '..', 'autonomous_explorer',
             'urdf', 'worlds', 'mujoco_maze.xml')
         mjcf_path = os.path.abspath(mjcf_path)
         log.info('MuJoCo backend — MJCF: %s', mjcf_path)
-        env_fns = [make_mujoco_env(mjcf_path, curriculum, reward_weights, args.seed + i * 1000)
+        env_fns = [make_mujoco_env(mjcf_path, curriculum, reward_weights, cfg.seed + i * 1000)
                    for i in range(num_envs)]
-        eval_env_fns = [make_mujoco_env(mjcf_path, curriculum, reward_weights, args.seed + 1000)]
+        eval_env_fns = [make_mujoco_env(mjcf_path, curriculum, reward_weights, cfg.seed + 1000)]
     else:
         # Gazebo path — UNCHANGED
         import rclpy
         from rl_local_planner.gym_env import GazeboExplorerEnv  # noqa: F401 (used in make_env)
         if not rclpy.ok():
             rclpy.init()
-        env_fns = [make_env(curriculum, reward_weights, args.seed + i * 1000)
+        env_fns = [make_env(curriculum, reward_weights, cfg.seed + i * 1000)
                    for i in range(num_envs)]
-        eval_env_fns = [make_env(curriculum, reward_weights, args.seed + 1000)]
+        eval_env_fns = [make_env(curriculum, reward_weights, cfg.seed + 1000)]
 
     if num_envs > 1:
         log.info('Using SubprocVecEnv with %d environments', num_envs)
@@ -379,10 +362,10 @@ def main():
     }
 
     # ── PPO model ────────────────────────────────────────────────────────
-    if args.resume_from and os.path.isfile(f'{args.resume_from}.zip'):
+    if cfg.resume_from and os.path.isfile(f'{cfg.resume_from}.zip'):
         # Load from checkpoint
-        log.info('Loading model from checkpoint: %s', args.resume_from)
-        model = PPO.load(args.resume_from, env=env)
+        log.info('Loading model from checkpoint: %s', cfg.resume_from)
+        model = PPO.load(cfg.resume_from, env=env)
 
         # Load VecNormalize stats if available
         vec_norm_path = os.path.join(cfg.save_dir, 'vec_normalize.pkl')
@@ -406,12 +389,12 @@ def main():
             gae_lambda=cfg.gae_lambda,
             clip_range=cfg.clip_range,
             ent_coef=cfg.ent_coef,
-            vf_coef=0.5,
-            max_grad_norm=0.5,
+            vf_coef=cfg.vf_coef,
+            max_grad_norm=cfg.max_grad_norm,
             verbose=1,
             tensorboard_log=cfg.tb_log_dir,
             policy_kwargs=policy_kwargs,
-            seed=args.seed,
+            seed=cfg.seed,
             device=device,
         )
 
@@ -432,7 +415,7 @@ def main():
     callbacks = CallbackList([
         MetricsCallback(),
         CurriculumCallback(curriculum),
-        ModelCardCallback(cfg, args.seed, curriculum),
+        ModelCardCallback(cfg, cfg.seed, curriculum),
         eval_callback,
     ])
 
@@ -457,10 +440,15 @@ def main():
     save_model_card(
         final_path,
         cfg,
-        args.seed,
+        cfg.seed,
         curriculum.current_stage,
         total_timesteps_done=cfg.total_timesteps,
     )
+
+    # Export resolved config alongside the model for reproducibility
+    config_export_path = os.path.join(cfg.save_dir, 'training_config_used.yaml')
+    OmegaConf.save(hydra_cfg, config_export_path)
+    log.info('Resolved config exported to: %s', config_export_path)
 
     if isinstance(env, VecNormalize):
         norm_path = os.path.join(cfg.save_dir, 'vec_normalize.pkl')
@@ -469,7 +457,7 @@ def main():
 
     env.close()
     eval_env.close()
-    if args.sim == 'gazebo':
+    if cfg.sim == 'gazebo':
         import rclpy
         rclpy.shutdown()
     log.info('Training complete.')
