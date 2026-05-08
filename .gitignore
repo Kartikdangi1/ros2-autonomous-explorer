@@ -42,9 +42,6 @@ rl_checkpoints/
 tb_logs/
 models/
 
-# Generated maps (SLAM output)
-maps/
-
 # Temp / scratch files
 fixes.txt
 TODO.txt
