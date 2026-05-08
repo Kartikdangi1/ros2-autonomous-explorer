@@ -7,16 +7,16 @@
     qvel[0:3] (world-frame translation) and qvel[5] (yaw rate) — no wheel
     joints needed.
 
-    Footprint: 0.5 m × 0.3 m (half-extents 0.25 × 0.15), mass 5.6 kg.
+    Footprint: 0.4 m × 0.24 m (half-extents 0.20 × 0.12), mass 5.6 kg.
     LiDAR site at z=0.175 m above base centre (matches URDF sensor tower).
   -->
 
   <worldbody>
-    <body name="base_link" pos="0 0 0.15">
+    <body name="base_link" pos="0 0 0.125">
       <freejoint name="base_freejoint"/>
       <geom name="robot_body"
             type="box"
-            size="0.25 0.15 0.12"
+            size="0.20 0.12 0.10"
             mass="5.6"
             contype="1"
             conaffinity="1"

@@ -420,6 +420,15 @@ class CandidateGenerator:
 
         candidates = self._deduplicate(candidates, min_dist=1.0)
 
+        # Strategy C: Map-based frontier candidates (always supplement A)
+        # Finds free cells adjacent to unknown cells in the occupancy grid —
+        # these exist at the edge of the explored gray area pointing into the
+        # unexplored white area even when LiDAR cannot see through walls.
+        map_fc = self._map_frontier_candidates(
+            robot_pose, mapper, blacklist, outline.jump_edges)
+        candidates.extend(map_fc)
+        candidates = self._deduplicate(candidates, min_dist=1.0)
+
         # Strategy B: Uniform sampling fallback
         if len(candidates) == 0:
             rx, ry = robot_pose[0], robot_pose[1]
@@ -488,6 +497,56 @@ class CandidateGenerator:
                 to_edge = je.midpoint - pos
                 best_orient = np.arctan2(to_edge[1], to_edge[0])
         return best_orient
+
+    def _map_frontier_candidates(self, robot_pose, mapper, blacklist,
+                                 jump_edges, max_candidates=15):
+        """Strategy C: free cells adjacent to unknown cells in the occupancy grid."""
+        occ = mapper.get_occupancy_grid()
+        unknown = (occ == -1)
+        free = (occ == 0)
+
+        # 4-connected dilation of unknown mask
+        adj_unknown = np.zeros_like(unknown, dtype=bool)
+        adj_unknown[1:, :] |= unknown[:-1, :]
+        adj_unknown[:-1, :] |= unknown[1:, :]
+        adj_unknown[:, 1:] |= unknown[:, :-1]
+        adj_unknown[:, :-1] |= unknown[:, 1:]
+
+        gy_arr, gx_arr = np.where(free & adj_unknown)
+        if len(gy_arr) == 0:
+            return []
+
+        wx_arr = mapper.origin_x + (gx_arr + 0.5) * mapper.resolution
+        wy_arr = mapper.origin_y + (gy_arr + 0.5) * mapper.resolution
+
+        rx, ry = robot_pose[0], robot_pose[1]
+        dists = np.hypot(wx_arr - rx, wy_arr - ry)
+        in_range = (dists > self.min_candidate_dist) & (dists < self.exploration_radius)
+        wx_arr = wx_arr[in_range]
+        wy_arr = wy_arr[in_range]
+        if len(wx_arr) == 0:
+            return []
+
+        # Subsample to avoid slow loop
+        if len(wx_arr) > max_candidates:
+            rng = np.random.default_rng(seed=int(rx * 1000) % (2**31))
+            idx = rng.choice(len(wx_arr), max_candidates, replace=False)
+            wx_arr = wx_arr[idx]
+            wy_arr = wy_arr[idx]
+
+        inflated = mapper.get_inflated_grid(self.CANDIDATE_CLEARANCE_RADIUS)
+        bl_arr = [np.asarray(b) for b in blacklist]
+        result = []
+        for wx, wy in zip(wx_arr, wy_arr):
+            pos = np.array([wx, wy])
+            gx, gy = mapper.world_to_grid(wx, wy)
+            if not mapper.is_in_map(gx, gy) or inflated[gy, gx] == 1:
+                continue
+            if any(np.linalg.norm(pos - b) < 1.0 for b in bl_arr):
+                continue
+            orientation = self._orient_to_nearest_jump(pos, jump_edges) if jump_edges else 0.0
+            result.append(Candidate(position=pos, orientation=orientation))
+        return result
 
 
 # ============================================================

@@ -10,6 +10,8 @@ DWB's output velocities by this limit automatically (speed_limit_topic param).
 Result: full speed on straight corridors, automatic deceleration into turns.
 """
 
+import math
+
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy

@@ -36,12 +36,15 @@ slam_toolbox:
     # Switch to "localization" + provide a map_file_name for a known environment
     mode: mapping
 
-    # Map update rate — publish /map less often to reduce resize cascade
-    # cost (planner + NBV mapper + RViz all resize on each publish).
-    # Each publish triggers StaticLayer memory reallocation in Nav2 which stalls
-    # the controller thread for 200-500ms. At 5s interval the controller misses
-    # its 10Hz rate 3× per movement_time_allowance window → "Failed to make progress".
-    map_update_interval: 15.0   # was 5.0 — 3× fewer resizes; planner uses allow_unknown to route through unmapped space
+    # Map update rate — publish /map to keep the Nav2 static layer fresh.
+    # Each publish triggers StaticLayer memory reallocation in Nav2 (200-500ms stall).
+    # 10.0 s balances two constraints:
+    #   - Too short (5.0 s): stalls every 5s + movement_time_allowance=15s → 3 stalls
+    #     per window still tolerable, but logs showed "Failed to make progress" chains
+    #   - Too long (15.0 s): scan-map alignment offset visible in RViz
+    # The TF lag (min_time_interval: 0.2s) fixes the DYNAMIC offset (robot moving).
+    # 10.0 s is sufficient for STATIC map cell freshness; obstacle_layer handles live data.
+    map_update_interval: 10.0
     resolution: 0.05
 
     # Maximum range to include in the map (match max_range)
@@ -50,21 +53,22 @@ slam_toolbox:
     # Set to 0.0 so SLAM processes scans even when the robot is stationary.
     # Without this, a stuck robot never moves 2cm and SLAM starves — the map
     # stays empty, the planner routes through walls, the robot stays stuck.
-    # minimum_time_interval caps scan intake to ≤ 1/s to prevent graph bloat.
     minimum_travel_distance: 0.0
     minimum_travel_heading: 0.0
-    # Throttle scan intake — process every 4th scan (~5 Hz from 20 Hz LiDAR).
-    # Previous 10 Hz was overloading SLAM Toolbox, causing map→odom TF to go
-    # stale by 1.8+ s and Nav2 controller to lose its transform entirely.
-    # NOTE: only define throttle_scans once — a second definition later in the file
-    # would silently override this value.
-    throttle_scans: 4
-    minimum_time_interval: 0.4     # hard cap: max 2.5 Hz regardless of throttle_scans
-    ceres_num_threads: 4           # cap Ceres CPU usage; leaves headroom for controller
-    scan_buffer_size: 10            # larger buffer absorbs bursts without dropping
+    # Process every 2nd scan (10 Hz raw intake). minimum_time_interval hard-caps
+    # actual SLAM graph insertions at 5 Hz — double the old 2.5 Hz.
+    # Old throttle_scans=4 + min_time=0.4s → 2.5 Hz pose updates → up to 0.2 m TF lag
+    # at 0.5 m/s robot speed. This was the primary cause of the scan-vs-map offset.
+    # NOTE: only define throttle_scans once — a second definition silently overrides.
+    throttle_scans: 2
+    minimum_time_interval: 0.2     # hard cap: max 5 Hz → max TF lag ~0.1 m at 0.5 m/s
+    ceres_num_threads: 50          # slam_toolbox passes 50 to Ceres regardless of this param;
+                                   # Ceres bounds to system max (12 here). Set to 50 so the
+                                   # config documents the actual runtime value, not a dead override.
+    scan_buffer_size: 15            # larger buffer absorbs bursts at higher 5 Hz intake
     scan_buffer_maximum_scan_distance: 15.0
     link_match_minimum_response_fine: 0.45   # stricter match — avoids placing scans at wrong pose
-    link_scan_maximum_distance: 1.5
+    link_scan_maximum_distance: 1.0          # tighter link distance — better map precision
 
     # Loop closure — reduced search space to prevent multi-second CPU spikes
     # that stall the scan processor and cause TF staleness.
@@ -80,7 +84,7 @@ slam_toolbox:
     # Correlation search parameters
     correlation_search_space_dimension: 0.5
     correlation_search_space_resolution: 0.01
-    correlation_search_space_smear_deviation: 0.1
+    correlation_search_space_smear_deviation: 0.05  # tighter smear → sharper map cells
 
     # Fine scan matching
     distance_variance_penalty: 0.5

@@ -4,21 +4,21 @@
   <!-- ================================================================ -->
   <!-- XACRO PROPERTIES (tune geometry in one place)                     -->
   <!-- ================================================================ -->
-  <xacro:property name="chassis_length"  value="0.50"/>
-  <xacro:property name="chassis_width"   value="0.30"/>
+  <xacro:property name="chassis_length"  value="0.40"/>
+  <xacro:property name="chassis_width"   value="0.24"/>
   <xacro:property name="chassis_height"  value="0.08"/>
-  <xacro:property name="chassis_mass"    value="3.0"/>
+  <xacro:property name="chassis_mass"    value="2.0"/>
 
-  <xacro:property name="upper_deck_length" value="0.38"/>
-  <xacro:property name="upper_deck_width"  value="0.26"/>
+  <xacro:property name="upper_deck_length" value="0.30"/>
+  <xacro:property name="upper_deck_width"  value="0.20"/>
   <xacro:property name="upper_deck_height" value="0.005"/>
   <xacro:property name="upper_deck_mass"   value="0.3"/>
 
-  <xacro:property name="wheel_radius"    value="0.10"/>
-  <xacro:property name="wheel_width"     value="0.06"/>
-  <xacro:property name="wheel_mass"      value="0.4"/>
-  <xacro:property name="wheel_sep"       value="0.34"/>   <!-- center-to-center Y -->
-  <xacro:property name="wheelbase"       value="0.30"/>   <!-- front-to-rear X -->
+  <xacro:property name="wheel_radius"    value="0.085"/>
+  <xacro:property name="wheel_width"     value="0.055"/>
+  <xacro:property name="wheel_mass"      value="0.30"/>
+  <xacro:property name="wheel_sep"       value="0.28"/>   <!-- center-to-center Y — tighter for agility -->
+  <xacro:property name="wheelbase"       value="0.26"/>   <!-- front-to-rear X — tighter turning radius -->
 
   <!-- ================================================================ -->
   <!-- XACRO MACROS                                                      -->
@@ -71,8 +71,8 @@
       <child link="${name}"/>
       <origin xyz="${x_pos} ${y_pos} -0.04" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
-      <limit effort="10.0" velocity="10.0"/>
-      <dynamics damping="0.1" friction="0.01"/>
+      <limit effort="25.0" velocity="15.0"/>
+      <dynamics damping="0.03" friction="0.005"/>
     </joint>
 
     <!-- Mecanum anisotropic friction -->
@@ -80,8 +80,8 @@
       <surface>
         <friction>
           <ode>
-            <mu>1.0</mu>
-            <mu2>0.01</mu2>
+            <mu>1.2</mu>
+            <mu2>0.1</mu2>
             <fdir1>1 ${fdir1_y} 0</fdir1>
           </ode>
         </friction>
@@ -89,10 +89,10 @@
           <ode>
             <soft_cfm>0</soft_cfm>
             <soft_erp>0.2</soft_erp>
-            <kp>5000</kp>
-            <kd>2000</kd>
-            <max_vel>0.01</max_vel>
-            <min_depth>0.001</min_depth>
+            <kp>1000000</kp>
+            <kd>100</kd>
+            <max_vel>0.1</max_vel>
+            <min_depth>0.002</min_depth>
           </ode>
         </contact>
       </surface>
@@ -151,20 +151,20 @@
     </visual>
     <!-- Chamfered front nose (angled wedge effect using a smaller box) -->
     <visual>
-      <geometry><box size="0.06 0.24 0.06"/></geometry>
-      <origin xyz="0.26 0 -0.01" rpy="0 0.25 0"/>
+      <geometry><box size="0.06 0.20 0.06"/></geometry>
+      <origin xyz="0.21 0 -0.01" rpy="0 0.25 0"/>
       <material name="chassis_red"/>
     </visual>
     <!-- Side skirt left -->
     <visual>
-      <geometry><box size="0.44 0.015 0.05"/></geometry>
-      <origin xyz="0 0.155 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.36 0.015 0.05"/></geometry>
+      <origin xyz="0 0.125 -0.02" rpy="0 0 0"/>
       <material name="bumper_dark"/>
     </visual>
     <!-- Side skirt right -->
     <visual>
-      <geometry><box size="0.44 0.015 0.05"/></geometry>
-      <origin xyz="0 -0.155 -0.02" rpy="0 0 0"/>
+      <geometry><box size="0.36 0.015 0.05"/></geometry>
+      <origin xyz="0 -0.125 -0.02" rpy="0 0 0"/>
       <material name="bumper_dark"/>
     </visual>
     <collision>
@@ -191,25 +191,25 @@
     <!-- Front-left standoff -->
     <visual>
       <geometry><cylinder radius="0.008" length="0.04"/></geometry>
-      <origin xyz="0.15 0.10 -0.02" rpy="0 0 0"/>
+      <origin xyz="0.11 0.08 -0.02" rpy="0 0 0"/>
       <material name="silver"/>
     </visual>
     <!-- Front-right standoff -->
     <visual>
       <geometry><cylinder radius="0.008" length="0.04"/></geometry>
-      <origin xyz="0.15 -0.10 -0.02" rpy="0 0 0"/>
+      <origin xyz="0.11 -0.08 -0.02" rpy="0 0 0"/>
       <material name="silver"/>
     </visual>
     <!-- Rear-left standoff -->
     <visual>
       <geometry><cylinder radius="0.008" length="0.04"/></geometry>
-      <origin xyz="-0.15 0.10 -0.02" rpy="0 0 0"/>
+      <origin xyz="-0.11 0.08 -0.02" rpy="0 0 0"/>
       <material name="silver"/>
     </visual>
     <!-- Rear-right standoff -->
     <visual>
       <geometry><cylinder radius="0.008" length="0.04"/></geometry>
-      <origin xyz="-0.15 -0.10 -0.02" rpy="0 0 0"/>
+      <origin xyz="-0.11 -0.08 -0.02" rpy="0 0 0"/>
       <material name="silver"/>
     </visual>
     <collision>
@@ -230,31 +230,31 @@
   <link name="front_bumper">
     <!-- Main bumper bar -->
     <visual>
-      <geometry><box size="0.025 0.28 0.06"/></geometry>
+      <geometry><box size="0.025 0.22 0.06"/></geometry>
       <material name="bumper_dark"/>
     </visual>
     <!-- Left bumper end cap -->
     <visual>
       <geometry><cylinder radius="0.03" length="0.025"/></geometry>
-      <origin xyz="0 0.14 0" rpy="0 ${pi/2} 0"/>
+      <origin xyz="0 0.11 0" rpy="0 ${pi/2} 0"/>
       <material name="bumper_dark"/>
     </visual>
     <!-- Right bumper end cap -->
     <visual>
       <geometry><cylinder radius="0.03" length="0.025"/></geometry>
-      <origin xyz="0 -0.14 0" rpy="0 ${pi/2} 0"/>
+      <origin xyz="0 -0.11 0" rpy="0 ${pi/2} 0"/>
       <material name="bumper_dark"/>
     </visual>
     <collision>
-      <geometry><box size="0.025 0.32 0.06"/></geometry>
+      <geometry><box size="0.025 0.26 0.06"/></geometry>
     </collision>
-    <xacro:box_inertia m="0.15" x="0.025" y="0.32" z="0.06"/>
+    <xacro:box_inertia m="0.15" x="0.025" y="0.26" z="0.06"/>
   </link>
 
   <joint name="front_bumper_joint" type="fixed">
     <parent link="base_link"/>
     <child link="front_bumper"/>
-    <origin xyz="0.265 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="0.21 0 -0.01" rpy="0 0 0"/>
   </joint>
 
   <!-- ================================================================ -->
@@ -262,19 +262,19 @@
   <!-- ================================================================ -->
   <link name="rear_bumper">
     <visual>
-      <geometry><box size="0.02 0.26 0.05"/></geometry>
+      <geometry><box size="0.02 0.22 0.05"/></geometry>
       <material name="bumper_dark"/>
     </visual>
     <collision>
-      <geometry><box size="0.02 0.26 0.05"/></geometry>
+      <geometry><box size="0.02 0.22 0.05"/></geometry>
     </collision>
-    <xacro:box_inertia m="0.12" x="0.02" y="0.26" z="0.05"/>
+    <xacro:box_inertia m="0.12" x="0.02" y="0.22" z="0.05"/>
   </link>
 
   <joint name="rear_bumper_joint" type="fixed">
     <parent link="base_link"/>
     <child link="rear_bumper"/>
-    <origin xyz="-0.26 0 -0.01" rpy="0 0 0"/>
+    <origin xyz="-0.21 0 -0.01" rpy="0 0 0"/>
   </joint>
 
   <!-- ================================================================ -->
@@ -470,7 +470,7 @@
   <joint name="camera_joint" type="fixed">
     <parent link="upper_deck"/>
     <child link="camera_link"/>
-    <origin xyz="0.16 0 0.02" rpy="0 0 0"/>
+    <origin xyz="0.12 0 0.02" rpy="0 0 0"/>
   </joint>
 
   <!-- Camera optical frame (ROS convention: Z forward, X right, Y down) -->
@@ -594,10 +594,10 @@
   <!-- WHEELS (4WD Mecanum, using macro)                                 -->
   <!-- ================================================================ -->
   <!-- X-pattern: FL(+45) FR(-45) RL(-45) RR(+45)  →  fdir1 Y component -->
-  <xacro:mecanum_wheel name="front_left_wheel"  x_pos="0.15"  y_pos="0.17"  fdir1_y="1"/>
-  <xacro:mecanum_wheel name="front_right_wheel" x_pos="0.15"  y_pos="-0.17" fdir1_y="-1"/>
-  <xacro:mecanum_wheel name="rear_left_wheel"   x_pos="-0.15" y_pos="0.17"  fdir1_y="-1"/>
-  <xacro:mecanum_wheel name="rear_right_wheel"  x_pos="-0.15" y_pos="-0.17" fdir1_y="1"/>
+  <xacro:mecanum_wheel name="front_left_wheel"  x_pos="0.13"  y_pos="0.14"  fdir1_y="1"/>
+  <xacro:mecanum_wheel name="front_right_wheel" x_pos="0.13"  y_pos="-0.14" fdir1_y="-1"/>
+  <xacro:mecanum_wheel name="rear_left_wheel"   x_pos="-0.13" y_pos="0.14"  fdir1_y="-1"/>
+  <xacro:mecanum_wheel name="rear_right_wheel"  x_pos="-0.13" y_pos="-0.14" fdir1_y="1"/>
 
   <!-- ================================================================ -->
   <!-- WHEEL FENDERS (Protective arches over each wheel)                 -->
@@ -620,10 +620,10 @@
     </joint>
   </xacro:macro>
 
-  <xacro:wheel_fender name="fl" x_pos="0.15"  y_pos="0.155"/>
-  <xacro:wheel_fender name="fr" x_pos="0.15"  y_pos="-0.155"/>
-  <xacro:wheel_fender name="rl" x_pos="-0.15" y_pos="0.155"/>
-  <xacro:wheel_fender name="rr" x_pos="-0.15" y_pos="-0.155"/>
+  <xacro:wheel_fender name="fl" x_pos="0.13"  y_pos="0.125"/>
+  <xacro:wheel_fender name="fr" x_pos="0.13"  y_pos="-0.125"/>
+  <xacro:wheel_fender name="rl" x_pos="-0.13" y_pos="0.125"/>
+  <xacro:wheel_fender name="rr" x_pos="-0.13" y_pos="-0.125"/>
 
   <!-- ================================================================ -->
   <!-- GAZEBO: DRIVE & STATE PUBLISHER PLUGINS                           -->
@@ -637,9 +637,9 @@
       <back_left_joint>rear_left_wheel_joint</back_left_joint>
       <back_right_joint>rear_right_wheel_joint</back_right_joint>
 
-      <wheel_separation>${wheel_sep}</wheel_separation>
-      <wheelbase>${wheelbase}</wheelbase>
-      <wheel_radius>${wheel_radius}</wheel_radius>
+      <wheel_separation>${wheel_sep}</wheel_separation>     <!-- 0.28 m -->
+      <wheelbase>${wheelbase}</wheelbase>                   <!-- 0.26 m -->
+      <wheel_radius>${wheel_radius}</wheel_radius>          <!-- 0.085 m -->
 
       <odom_publish_frequency>50</odom_publish_frequency>
       <topic>/model/robot/cmd_vel</topic>
@@ -737,6 +737,18 @@
           <stddev>0.03</stddev>
         </noise>
       </lidar>
+    </sensor>
+  </gazebo>
+
+  <!-- FRONT BUMPER CONTACT SENSOR: 50 Hz, publishes /bumper_front -->
+  <gazebo reference="front_bumper">
+    <sensor name="front_bumper_sensor" type="contact">
+      <always_on>1</always_on>
+      <update_rate>50</update_rate>
+      <contact>
+        <collision>front_bumper_collision</collision>
+      </contact>
+      <topic>/bumper_front</topic>
     </sensor>
   </gazebo>
 

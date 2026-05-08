@@ -106,12 +106,12 @@ class NBVGoalProviderNode(Node):
         # Extension 1: Goal pre-validation
         self.declare_parameter('pre_validate_goals', True)
         self.declare_parameter('validator_robot_radius', 0.3)
-        self.declare_parameter('validator_max_cells', 40000)
+        self.declare_parameter('validator_max_cells', 80000)
         # Extension 4: Topological map
         self.declare_parameter('enable_topo_map', True)
         self.declare_parameter('topo_node_spacing', 1.5)
         self.declare_parameter('topo_visited_radius', 2.0)
-        self.declare_parameter('topo_penalty_weight', 0.8)
+        self.declare_parameter('topo_penalty_weight', 0.4)
         # Extension 5: Coverage fallback
         self.declare_parameter('enable_coverage_fallback', True)
         self.declare_parameter('coverage_stagnation_ticks', 3)
@@ -121,6 +121,8 @@ class NBVGoalProviderNode(Node):
         self.declare_parameter('maze_limit_m', 12.8)
         # Blacklist cap (M3)
         self.declare_parameter('max_blacklist_size', 100)
+        # Max goal distance until sufficient map coverage is reached
+        self.declare_parameter('max_goal_dist_m', 3.0)  # doubles each goal reached
 
         map_frame  = self.get_parameter('map_frame').value
         base_frame = self.get_parameter('base_frame').value
@@ -167,6 +169,7 @@ class NBVGoalProviderNode(Node):
         # Extension 5: coverage planner + stagnation counter
         self._coverage_planner = CoveragePlanner(row_spacing=1.0)
         self._zero_frontier_ticks: int = 0
+        self._goals_reached: int = 0  # doubles max_goal_dist_m each success
 
         # B2: coverage tracker
         self._coverage_tracker = CoverageTracker()
@@ -408,10 +411,16 @@ class NBVGoalProviderNode(Node):
         # ── Pick the best candidate far enough from the current goal ──────────
         min_vis = self.get_parameter('min_visibility_threshold').value
         pre_validate = self.get_parameter('pre_validate_goals').value
+        max_goal_dist = min(
+            self.get_parameter('max_goal_dist_m').value * (2 ** self._goals_reached),
+            self.get_parameter('maze_limit_m').value,
+        )
         for sc in scored:
             if sc.visibility_score < min_vis:
                 continue
             pos = sc.candidate.position
+            if np.linalg.norm(pos - pose[:2]) > max_goal_dist:
+                continue
             if self._current_goal is not None:
                 if np.linalg.norm(pos - self._current_goal) < CANDIDATE_MIN_DIST:
                     continue
@@ -553,7 +562,13 @@ class NBVGoalProviderNode(Node):
         result = future.result()
         status = result.status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('NBV goal reached — computing next goal')
+            self._goals_reached += 1
+            dist = min(
+                self.get_parameter('max_goal_dist_m').value * (2 ** self._goals_reached),
+                self.get_parameter('maze_limit_m').value,
+            )
+            self.get_logger().info(
+                f'NBV goal reached ({self._goals_reached}) — next max dist {dist:.1f} m')
         else:
             self.get_logger().warn(
                 f'Navigation failed (status={status}) — blacklisting goal and retrying')

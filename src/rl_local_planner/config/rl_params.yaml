@@ -4,8 +4,8 @@ rl_controller:
     # Path to the exported ONNX model
     model_path: "/home/kartik/ros2-autonomous-explorer/models/explorer_ppo.onnx"
 
-    # Inference rate (Hz) — matches training step rate
-    inference_rate: 10.0
+    # Inference rate (Hz) — matches MuJoCo training step rate (0.05s = 20 Hz)
+    inference_rate: 20.0
 
     # Carrot-point extraction: max distance along global path for local goal.
     # Adaptive: shrinks below carrot_narrow_threshold to avoid wall-skipping in corridors.

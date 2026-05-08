@@ -44,10 +44,10 @@ COLLISION_LIDAR_THRESHOLD = 0.15   # metres — inside chassis = certain collisi
 STUCK_WINDOW              = 60     # steps — sync with point2d_env.py
 STUCK_THRESHOLD           = 0.15   # metres — 0.05 triggered false-positives in narrow corridors
 COLLISION_GRACE_STEPS     = 5      # steps post-reset where contact check is skipped
-FOOTPRINT_HALF_X          = 0.25   # metres
-FOOTPRINT_HALF_Y          = 0.15
+FOOTPRINT_HALF_X          = 0.20   # metres — matches robot.urdf.xacro chassis_length/2
+FOOTPRINT_HALF_Y          = 0.12   # metres — matches robot.urdf.xacro chassis_width/2
 PHYSICS_TIMESTEP          = 0.05   # 20 Hz — set in mujoco_maze.xml <option>
-SPAWN_MIN_CLEARANCE       = 0.30   # metres — LiDAR min after spawn; below = in a wall
+SPAWN_MIN_CLEARANCE       = 0.25   # metres — LiDAR min after spawn; below = in a wall
 MAX_SPAWN_RETRIES         = 10
 MAX_GOAL_RETRIES          = 20
 GOAL_MIN_CLEARANCE        = 0.40   # metres — 8-cell margin (8 × 0.05 m), avoids goals tight against walls
@@ -153,7 +153,7 @@ class MuJoCoExplorerEnv(gym.Env):
         """Instantly place the robot at (x, y, yaw) and zero velocity."""
         self._data.qpos[0] = x
         self._data.qpos[1] = y
-        self._data.qpos[2] = 0.15           # z — half box height (robot sits on floor)
+        self._data.qpos[2] = 0.125          # z — matches mujoco_robot.xml body pos z
         self._data.qpos[3] = math.cos(yaw / 2.0)   # qw
         self._data.qpos[4] = 0.0                    # qx
         self._data.qpos[5] = 0.0                    # qy
@@ -176,7 +176,7 @@ class MuJoCoExplorerEnv(gym.Env):
             return True
         # Unit direction vector (horizontal ray, z=0)
         direction = np.array([dx / goal_dist, dy / goal_dist, 0.0], dtype=np.float64)
-        origin = np.array([spawn_x, spawn_y, 0.15], dtype=np.float64)  # robot centre height
+        origin = np.array([spawn_x, spawn_y, 0.125], dtype=np.float64)  # robot centre height
         hit_dist = self._mujoco.mj_ray(
             self._model, self._data,
             origin, direction,

@@ -37,7 +37,7 @@ best_model_dir: "./rl_best_model/"
 reward_progress: 5.0       # × (fraction of initial distance closed per step)
 reward_goal_reached: 25.0  # one-time bonus on success
 reward_collision: -5.0     # one-time penalty on collision
-reward_proximity: -0.5     # × max(0, threshold - min_range)  [soft LiDAR warning]
+reward_proximity: -1.5     # × max(0, threshold - min_range)  [soft LiDAR warning]
 reward_smoothness: -0.1    # × ||action_t - action_{t-1}||
 reward_step_cost: -0.03    # per-step penalty (encourages efficiency, penalizes hovering)
 reward_heading: 0.2        # × cos(angle_to_goal) — bootstraps directional learning

@@ -41,11 +41,16 @@ def generate_launch_description():
         description='Use Gazebo simulation time')
 
     # ── SLAM Toolbox async — /scan → /map (OccupancyGrid) + map→odom TF ──────
+    # GLOG_minloglevel=2 suppresses the harmless per-scan Ceres warning:
+    #   "options.num_threads: 50 exceeds maximum available: 12. Bounding."
+    # slam_toolbox hardcodes 50 threads in its scan-match Ceres call regardless
+    # of ceres_num_threads param. Ceres caps to 12 automatically; warning is noise.
     slam_toolbox = Node(
         package='slam_toolbox',
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
         parameters=[SLAM_PARAMS],
+        additional_env={'GLOG_minloglevel': '2'},
         output='screen')
 
     return LaunchDescription([
