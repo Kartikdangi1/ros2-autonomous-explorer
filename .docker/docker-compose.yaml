@@ -1,0 +1,136 @@
+name: ${USER}_${image_name}
+
+# ── Shared config anchors ────────────────────────────────────────────────────
+x-ros-env: &ros-env
+  ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-42}"
+  RCUTILS_LOGGING_BUFFERED_STREAM: "1"
+  RCUTILS_COLORIZED_OUTPUT: "1"
+
+x-dev-defaults: &dev-defaults
+  image: ${USER}_${image_name}:dev
+  user: "${UID}:${GID}"
+  command: sleep infinity
+
+x-dev-volumes: &dev-volumes
+  volumes:
+    - ../src:/ros2_ws/src:rw
+    - ../.git/modules:/ros2_ws/.git/modules:rw
+    - ~/.ssh:/home/devuser/.ssh:ro
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - ../rl_checkpoints:/ros2_ws/rl_checkpoints
+    - ../rl_best_model:/ros2_ws/rl_best_model
+    - ../tb_logs:/ros2_ws/tb_logs
+    - build:/ros2_ws/build
+    - install:/ros2_ws/install
+    - log:/ros2_ws/log
+    - bash_history:/commandhistory
+    - vscode-server:/home/devuser/.vscode-server
+    - ../.docker/specific_alias.bash:/ros2_ws/.docker/specific_alias.bash:ro
+
+x-general-args: &general-args
+  network_mode: host
+  ipc: host
+  privileged: true
+  tty: true
+  stdin_open: true
+  environment:
+    <<: *ros-env
+    DISPLAY: "${DISPLAY}"
+    QT_X11_NO_MITSHM: "1"
+
+x-gpu-service: &gpu-service
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  # ── Interactive dev shell ────────────────────────────────────────────────
+  dev:
+    <<: [*general-args, *dev-defaults, *dev-volumes]
+    container_name: ${USER}_${image_name}_dev
+    build:
+      context: ..
+      dockerfile: .docker/Dockerfile
+      args:
+        UID: "${UID}"
+        GID: "${GID}"
+        TORCH: "${TORCH:-false}"
+
+  dev_gpu:
+    profiles:
+      - dev_gpu
+    <<: [*general-args, *dev-defaults, *dev-volumes, *gpu-service]
+    container_name: ${USER}_${image_name}_dev_gpu
+    environment:
+      <<: *ros-env
+      DISPLAY: "${DISPLAY}"
+      NVIDIA_DRIVER_CAPABILITIES: all
+
+  # ── Headless Gazebo simulation server ────────────────────────────────────
+  gazebo:
+    profiles:
+      - training
+    <<: [*general-args, *dev-defaults, *dev-volumes]
+    container_name: ${USER}_${image_name}_gazebo
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        source /ros2_ws/install/setup.bash &&
+        ros2 launch rl_local_planner train.launch.py
+          headless:=true use_rviz:=false
+      "
+    environment:
+      <<: *ros-env
+      DISPLAY: ""
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+    restart: unless-stopped
+
+  # ── PPO training script ──────────────────────────────────────────────────
+  trainer:
+    profiles:
+      - training
+    <<: [*general-args, *dev-defaults, *dev-volumes, *gpu-service]
+    container_name: ${USER}_${image_name}_trainer
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.bash &&
+        source /ros2_ws/install/setup.bash &&
+        echo 'Waiting 30s for Gazebo + Nav2...' && sleep 30 &&
+        python3 src/rl_local_planner/scripts/train_ppo.py
+          --config src/rl_local_planner/config/training_config.yaml
+          --seed 42 --num-envs 1
+      "
+    environment:
+      <<: *ros-env
+      CUBLAS_WORKSPACE_CONFIG: ":4096:8"
+      NVIDIA_DRIVER_CAPABILITIES: all
+    depends_on:
+      - gazebo
+    restart: "no"
+
+  # ── TensorBoard dashboard (optional) ────────────────────────────────────
+  tensorboard:
+    profiles:
+      - monitoring
+    image: tensorflow/tensorflow:2.15.0
+    container_name: ${USER}_${image_name}_tensorboard
+    command: tensorboard --logdir /logs --host 0.0.0.0 --port 6006
+    volumes:
+      - ../tb_logs:/logs:ro
+    ports:
+      - "6006:6006"
+
+volumes:
+  build:         { name: "${USER}_${image_name}_build" }
+  install:       { name: "${USER}_${image_name}_install" }
+  log:           { name: "${USER}_${image_name}_log" }
+  bash_history:  { name: "${USER}_${image_name}_bash_history" }
+  vscode-server: { name: "${USER}_${image_name}_vscode_server" }
