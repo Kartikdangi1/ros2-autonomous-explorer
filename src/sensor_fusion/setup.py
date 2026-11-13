@@ -13,10 +13,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='Your Name',
-    maintainer_email='you@example.com',
+    maintainer='Kartik Dangi',
+    maintainer_email='1kartik.dangi@gmail.com',
     description='Multi-sensor fusion preprocess node',
-    license='Apache-2.0',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

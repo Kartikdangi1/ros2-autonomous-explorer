@@ -5,7 +5,7 @@
   <version>0.0.1</version>
   <description>Lidar-IMU SLAM with vision-based obstacle avoidance</description>
   <maintainer email="1kartik.dangi@gmail.com">Kartik</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <url type="website">https://github.com/Kartikdangi1/ros2-autonomous-explorer</url>
 

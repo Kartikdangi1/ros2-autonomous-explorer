@@ -4,8 +4,8 @@
   <name>sensor_fusion</name>
   <version>0.0.1</version>
   <description>Multi-sensor fusion preprocess: fuses LiDAR + radar + RGB-D into /fused_scan</description>
-  <maintainer email="you@example.com">Your Name</maintainer>
-  <license>Apache-2.0</license>
+  <maintainer email="1kartik.dangi@gmail.com">Kartik Dangi</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
